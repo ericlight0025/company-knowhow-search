@@ -49,32 +49,15 @@ Heading: Common bug
 Chunk: 1
 ```
 
-但目前版本尚未保存原始 Markdown 的 `start_line` 與 `end_line`，因此不能保證直接輸出「第幾行」。現在的 chunk 可能包含一個或多個 paragraph。
+目前已保存 `start_line`、`end_line` 及來源檔案 `source_sha256`。
 
-## 3. 精準行號定位的建議改法
+## 3. 精準行號定位
 
-要支援以下輸出：
-
-```text
-File: knowhow/java_service_layer.md
-Lines: 9-9
-Heading: Common bug
-Snippet: API 回傳 success 後才非同步執行 batch...
-```
-
-需要做四個小修改：
-
-1. `MarkdownLoader` 讀取文件時保留原始 line number。
-2. `MarkdownChunker` 建立 chunk 時保存 `start_line`、`end_line`。
-3. `metadata.json` 與 FTS5 儲存這兩個欄位。
-4. `search.py` 與 JSON 輸出顯示 line range。
-
-Hybrid ranking 不需要改，因為行號只是 provenance metadata，不參與相似度計算。
-
-修改後仍然要重新執行：
+`search.py` 的文字與 JSON 輸出都包含 chunk 的原始行號範圍。行號是索引當時的版本；文件有修改時，請重建或驗證來源雜湊。程式碼圍欄內的註解不會被誤當成 heading。長段落按原文字串偏移切割，長行可能跨多個 chunk。
 
 ```bash
 python index.py
+python search.py "Java 非同步批次" --json
 ```
 
 ## 4. 不同文件格式的定位方式
@@ -195,3 +178,8 @@ SA 文件通常包含內部架構、API、資料表與權限資訊。預設應�
 
 搜尋結果必須保留原始文件位置，讓使用者可以回到原文確認；不要只顯示模型摘要。未來加入權限控管時，權限過濾應在搜尋結果輸出前完成。
 
+## 本次修正後的評估規則
+
+三種模式按完整路徑去重後比較文件 Top 5。MRR@5 包含未命中題（計 0）；Hit@5 顯示召回率，平均首次命中排名只作輔助。開發用合成題不能作為獨立品質證明。
+
+向量門檻由 `KNOWHOW_VECTOR_MIN_SIMILARITY` 設定，預設 0。調整門檻須同時觀察有答案與無答案題，避免為降低誤召回而漏掉正確文件。RRF 分數不適合作為機率門檻。

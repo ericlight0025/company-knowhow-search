@@ -12,7 +12,7 @@ Markdown files
 Markdown Loader
       ↓
 Markdown Chunking
-(Heading + Paragraph, 300～800 tokens 的近似區間)
+(Heading + Paragraph + Code fence；以字元預算近似，不保證 token 數)
       ↓
  ┌──────────────────────────┐
  │ SQLite FTS5              │  Vector Index
@@ -48,13 +48,13 @@ Embedding 的文字會包含 title、heading 與正文，避免只看一小段�
 
 ### SQLite FTS5
 
-`data/knowledge.db` 內的 `chunks_fts` 保存 filename、filepath、title、heading、content 與 search_text。`search_text` 是給 FTS 的中英文 token 化欄位：中文加入單字與雙字 n-gram，英文保留原詞及 snake_case／hyphenated components。
+`data/generations/<版本>/knowledge.db` 內的 `chunks_fts` 保存 filename、filepath、title、heading、content 與 search_text。`search_text` 是給 FTS 的中英文 token 化欄位：中文加入單字與雙字 n-gram，英文保留原詞及 snake_case／hyphenated components。
 
 查詢使用 SQLite 的 `bm25()` 排序。BM25 分數只在 keyword layer 內使用；不會直接與 cosine 分數相加。
 
 ### Vector Index
 
-第一版使用 `HashingEmbeddingProvider` 與 NumPy matrix。向量先正規化，搜尋時用 dot product 等價於 cosine similarity。`data/vectors.index` 和 `data/metadata.json` 都是衍生檔，刪除後可由 `python index.py` 重建。
+第一版使用 `HashingEmbeddingProvider` 與 NumPy matrix。向量先正規化，搜尋時用 dot product 等價於 cosine similarity。版本資料匣內的 `vectors.index` 和 `metadata.json` 都是衍生檔，刪除後可由 `python index.py` 重建。
 
 Embedding provider 由 `EmbeddingProvider` 介面隔離，未來可替換本地模型、sentence-transformers、OpenAI embedding API 或公司內部 embedding API；替換時要重新建立 vector index。
 
@@ -97,3 +97,11 @@ read file / heading / snippet
 ```
 
 這比一開始建立 MCP Server 少一層部署與權限風險。當 command 的輸出格式、權限過濾、審計與真實查詢評估穩定後，再把同一個 service layer 包成 MCP tool。
+
+## 版本發布與引用
+
+`index.py` 在獨立版本資料匣完成 SQLite、vectors、metadata；驗證成功後才以原子替換更新 `data/current.json`。搜尋一次讀取指標，固定使用該版本；舊版本不自動刪除。中途中斷會留下未發布資料匣，但不會切換現行索引。
+
+載入時核對檔案 SHA-256、embedding metadata 與筆數；metadata 另保存 UTC 建立時間、來源雜湊、設定與 chunk 行號。行號不表示文件目前未改動，須以相同來源雜湊為準。
+
+評估統一文件去重，包含 Hit@5、MRR@5 與無答案題。Hashing 與同義詞是基準實作，尚無通用的答案存在判斷器。

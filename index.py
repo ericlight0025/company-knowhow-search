@@ -5,16 +5,17 @@ from __future__ import annotations
 import argparse
 from fnmatch import fnmatchcase
 import json
+import sys
+import sqlite3
+from datetime import datetime, timezone
+from dataclasses import asdict
 from pathlib import Path
 
 from config import (
-    DATABASE_PATH,
     DATA_DIR,
     KNOWHOW_DIR,
-    METADATA_PATH,
     ROOT_DIR,
     SearchConfig,
-    VECTOR_INDEX_PATH,
 )
 from src.chunker import MarkdownChunker
 from src.embedding_provider import create_embedding_provider
@@ -22,6 +23,7 @@ from src.fts_index import FTSIndex
 from src.index_config import SourceSpec, load_index_config
 from src.markdown_loader import MarkdownLoader
 from src.vector_index import VectorIndex
+from src.index_store import new_generation, publish
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -76,7 +78,7 @@ def collect_markdown_files(
         configured_sources = list(source_specs)
     else:
         # 保留原本的 Python 呼叫方式；未傳任何來源時仍掃描 knowhow/。
-        source_paths = sources if sources is not None else [KNOWHOW_DIR]
+        source_paths = sources if sources is not None else ([] if files else [KNOWHOW_DIR])
         patterns = tuple(include_patterns or ["*.md"])
         configured_sources = [
             SourceSpec(
@@ -137,7 +139,7 @@ def display_filepath(path: Path) -> str:
         return str(resolved)
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_index(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     settings = SearchConfig()
     settings.validate()
@@ -188,33 +190,58 @@ def main(argv: list[str] | None = None) -> int:
     provider = create_embedding_provider(settings.embedding_dimension)
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-    fts_index = FTSIndex(DATABASE_PATH)
+    generation = new_generation(DATA_DIR)
+    database_path = generation / "knowledge.db"
+    vector_path = generation / "vectors.index"
+    metadata_path = generation / "metadata.json"
+    fts_index = FTSIndex(database_path)
     fts_index.rebuild(chunks)
-    vector_index = VectorIndex.build(VECTOR_INDEX_PATH, chunks, provider)
+    vector_index = VectorIndex.build(vector_path, chunks, provider)
     vector_index.save()
 
     metadata = {
-        "format_version": 1,
+        "format_version": 2,
+        "generation": generation.name,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "settings": asdict(settings),
+        "sources": [{"file": doc.filepath, "sha256": doc.source_sha256} for doc in documents],
         "embedding_provider": provider.metadata(),
         "chunk_count": len(chunks),
         "document_count": len(documents),
         "source_files": [document.filepath for document in documents],
         "chunks": [chunk.to_dict() for chunk in chunks],
     }
-    METADATA_PATH.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+    metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+    # 新版必須可載入且筆數一致，才能取代 current 指標。
+    VectorIndex.load(vector_path, chunks, provider, provider.metadata())
+    if fts_index.count() != len(chunks):
+        raise RuntimeError("FTS 筆數驗證失敗")
+    publish(DATA_DIR, generation)
 
     print("Index completed")
     print(f"Config: {config_path}")
     print(f"Documents: {len(documents)}")
     print(f"Chunks: {len(chunks)}")
-    print(f"SQLite FTS5: {DATABASE_PATH}")
-    print(f"Vector index: {VECTOR_INDEX_PATH}")
-    print(f"Metadata: {METADATA_PATH}")
+    print(f"SQLite FTS5: {database_path}")
+    print(f"Vector index: {vector_path}")
+    print(f"Metadata: {metadata_path}")
     print(f"Embedding provider: {provider.metadata()['name']} ({settings.embedding_dimension} dimensions)")
     print("Source files:")
     for document in documents:
         print(f"- {document.filepath}")
     return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    """統一顯示可處理的錯誤，索引中斷時保留已發布版本。"""
+    try:
+        return build_index(argv)
+    except (OSError, RuntimeError, ValueError, sqlite3.Error) as exc:
+        print(f"索引建立失敗：{exc}", file=sys.stderr)
+        return 1
+    except KeyboardInterrupt:
+        print("索引建立已中斷；已發布版本仍保留。", file=sys.stderr)
+        return 130
 
 
 if __name__ == "__main__":

@@ -1,136 +1,90 @@
-"""依 Markdown heading／paragraph 進行 chunking。"""
-
+"""保留來源行號的 Markdown 分段；不將程式碼註解當成章節。"""
 from __future__ import annotations
 
-from dataclasses import dataclass
 import re
-
 from .models import Chunk, Document
 
-
-_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$")
-_SENTENCE_SPLIT_RE = re.compile(r"(?<=[。！？!?；;])\s+|(?<=\.)\s+(?=[A-Z0-9\u3400-\u9fff])")
-
-
-@dataclass
-class _Block:
-    heading: str
-    text: str
+HEADING = re.compile(r"^ {0,3}#{1,6}\s+(.+?)\s*#*\s*$")
+FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 
 
 class MarkdownChunker:
-    """以字元數近似 token 預算，讓中英文內容都能使用同一套規則。"""
+    """以字元預算切割，來源行號指向索引當時的原文。"""
 
     def __init__(self, target_chars: int = 1400, max_chars: int = 2600):
         if target_chars <= 0 or max_chars < target_chars:
             raise ValueError("target_chars 與 max_chars 設定不合理")
-        self.target_chars = target_chars
-        self.max_chars = max_chars
+        self.target_chars, self.max_chars = target_chars, max_chars
+
+    def _split_if_needed(self, text: str) -> list[str]:
+        """優先在換行或句尾切開；拼接後必須等於輸入原文。"""
+        parts = []
+        while len(text) > self.max_chars:
+            window = text[:self.max_chars]
+            boundaries = list(re.finditer(r"\n|[。！？!?；;.]\s+", window))
+            end = boundaries[-1].end() if boundaries else self.max_chars
+            if end < self.target_chars:
+                end = self.max_chars
+            parts.append(text[:end])
+            text = text[end:]
+        if text:
+            parts.append(text)
+        return parts
 
     def chunk_document(self, document: Document) -> list[Chunk]:
-        blocks = self._parse_blocks(document)
-        packed: list[tuple[str, str]] = []
-        current_heading = document.title
-        current_parts: list[str] = []
-        current_length = 0
+        chunks = []
+        heading = document.title
+        fence_char, fence_length = "", 0
+        section: list[tuple[int, str]] = []
+        section_length = 0
 
         def flush() -> None:
-            nonlocal current_parts, current_length, current_heading
-            if current_parts:
-                packed.append((current_heading, "\n\n".join(current_parts).strip()))
-                current_parts = []
-                current_length = 0
+            """使用原始字串切割，再依字元偏移回推行號。"""
+            nonlocal section_length
+            if not section:
+                return
+            text = "".join(value for _, value in section)
+            offset = 0
+            for part in self._split_if_needed(text):
+                if part.strip():
+                    start = section[0][0] + text[:offset].count("\n")
+                    end = start + part.rstrip("\r\n").count("\n")
+                    index = len(chunks)
+                    chunks.append(Chunk(
+                        f"{document.filepath}::chunk-{index}", document.filename,
+                        document.filepath, document.title, heading, index, part,
+                        start, end, document.source_sha256,
+                    ))
+                offset += len(part)
+            section.clear()
+            section_length = 0
 
-        for block in blocks:
-            if block.heading != current_heading and current_parts:
-                # heading 改變時保留 section 邊界，避免不同主題被硬塞進同一 chunk。
-                flush()
-            current_heading = block.heading
-            for part in self._split_if_needed(block.text):
-                projected = current_length + len(part) + (2 if current_parts else 0)
-                if current_parts and projected > self.max_chars:
-                    flush()
-                    current_heading = block.heading
-                current_parts.append(part)
-                current_length += len(part) + (2 if len(current_parts) > 1 else 0)
-                if current_length >= self.target_chars:
-                    flush()
-                    current_heading = block.heading
-        flush()
-
-        chunks: list[Chunk] = []
-        for index, (heading, content) in enumerate(packed):
-            if not content.strip():
+        for number, line in enumerate(document.content.splitlines(keepends=True), 1):
+            fence = FENCE.match(line)
+            if fence_char:
+                section.append((number, line))
+                section_length += len(line)
+                if (fence and fence.group(1)[0] == fence_char
+                        and len(fence.group(1)) >= fence_length and not fence.group(2).strip()):
+                    fence_char = ""
                 continue
-            chunks.append(
-                Chunk(
-                    chunk_id=f"{document.filepath}::chunk-{index}",
-                    source_file=document.filename,
-                    filepath=document.filepath,
-                    title=document.title,
-                    heading=heading,
-                    chunk_index=index,
-                    content=content,
-                )
-            )
+            if fence:
+                fence_char, fence_length = fence.group(1)[0], len(fence.group(1))
+                section.append((number, line))
+                section_length += len(line)
+                continue
+            match = HEADING.match(line)
+            if match:
+                flush()
+                heading = match.group(1)
+                continue
+            section.append((number, line))
+            section_length += len(line)
+            if not line.strip() and section_length >= self.target_chars:
+                flush()
+        flush()
         return chunks
 
     def chunk_documents(self, documents: list[Document]) -> list[Chunk]:
-        chunks: list[Chunk] = []
-        for document in documents:
-            chunks.extend(self.chunk_document(document))
-        return chunks
-
-    def _parse_blocks(self, document: Document) -> list[_Block]:
-        blocks: list[_Block] = []
-        heading = document.title
-        paragraph_lines: list[str] = []
-
-        def flush_paragraph() -> None:
-            nonlocal paragraph_lines
-            text = "\n".join(paragraph_lines).strip()
-            if text:
-                blocks.append(_Block(heading=heading, text=text))
-            paragraph_lines = []
-
-        for line in document.content.splitlines():
-            heading_match = _HEADING_RE.match(line)
-            if heading_match:
-                flush_paragraph()
-                heading = heading_match.group(1).strip()
-                continue
-            if not line.strip():
-                flush_paragraph()
-                continue
-            paragraph_lines.append(line.rstrip())
-        flush_paragraph()
-        return blocks
-
-    def _split_if_needed(self, text: str) -> list[str]:
-        if len(text) <= self.max_chars:
-            return [text]
-        sentences = [part.strip() for part in _SENTENCE_SPLIT_RE.split(text) if part.strip()]
-        if not sentences:
-            sentences = [text]
-        parts: list[str] = []
-        current = ""
-        for sentence in sentences:
-            if len(sentence) > self.max_chars:
-                if current:
-                    parts.append(current.strip())
-                    current = ""
-                parts.extend(
-                    text[start : start + self.max_chars].strip()
-                    for start in range(0, len(sentence), self.max_chars)
-                )
-                continue
-            projected = len(current) + len(sentence) + (1 if current else 0)
-            if current and projected > self.max_chars:
-                parts.append(current.strip())
-                current = sentence
-            else:
-                current = f"{current} {sentence}".strip()
-        if current:
-            parts.append(current.strip())
-        return parts
-
+        """各文件獨立建立連續 chunk index。"""
+        return [chunk for document in documents for chunk in self.chunk_document(document)]

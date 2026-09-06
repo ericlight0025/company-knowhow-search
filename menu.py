@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-import json
+import sqlite3
 
-from config import DATABASE_PATH, METADATA_PATH, ROOT_DIR, VECTOR_INDEX_PATH
+from config import ROOT_DIR
 from index import main as index_main
 from search import main as search_main
 from src.index_config import load_index_config
+from src.hybrid_search import HybridSearcher
 
 
 SEARCH_MODES = ("hybrid", "keyword", "vector")
@@ -78,7 +79,8 @@ def _rebuild_flow() -> None:
         return
 
     try:
-        index_main([])
+        if index_main([]) != 0:
+            print("重建未成功；請依上述錯誤修正後重試。")
     except (FileNotFoundError, RuntimeError, ValueError) as exc:
         print(f"索引重建失敗：{exc}")
     _pause()
@@ -117,26 +119,16 @@ def _show_index_status() -> None:
     """顯示三個本機索引檔案與 metadata 狀態。"""
 
     print("\n本機索引狀態：")
-    for label, path in (
-        ("SQLite FTS5", DATABASE_PATH),
-        ("Vector index", VECTOR_INDEX_PATH),
-        ("Metadata", METADATA_PATH),
-    ):
-        if path.exists():
-            size_kb = path.stat().st_size / 1024
-            print(f"- {label}: OK ({size_kb:.1f} KB)")
-        else:
-            print(f"- {label}: 尚未建立 ({path})")
-
-    if METADATA_PATH.exists():
-        try:
-            payload = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
-            print(f"Documents: {payload.get('document_count', '?')}")
-            print(f"Chunks: {payload.get('chunk_count', '?')}")
-            provider = payload.get("embedding_provider", {})
-            print(f"Embedding: {provider.get('name', '?')}")
-        except (OSError, json.JSONDecodeError) as exc:
-            print(f"Metadata 讀取失敗：{exc}")
+    try:
+        searcher = HybridSearcher.load()
+        payload = searcher.index_metadata
+        print(f"已驗證檔案雜湊、向量設定與筆數：{searcher.generation.name}")
+        print(f"Documents: {payload['document_count']}")
+        print(f"Chunks: {payload['chunk_count']}")
+        print(f"Indexed at: {payload['created_at']}")
+        print("此檢查驗證索引本身；原始文件修改後須重建以更新行號。")
+    except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
+        print(f"索引尚未就緒：{exc}")
     _pause()
 
 
@@ -170,16 +162,25 @@ def run_menu() -> int:
         if choice in {"0", "q", "quit", "exit"}:
             print("已離開。")
             return 0
-        if choice == "1":
-            _search_flow()
-        elif choice == "2":
-            _rebuild_flow()
-        elif choice == "3":
-            _show_source_config()
-        elif choice == "4":
-            _show_index_status()
-        else:
-            print("無效選項，請輸入 0～4。")
+        try:
+            if choice == "1":
+                _search_flow()
+            elif choice == "2":
+                _rebuild_flow()
+            elif choice == "3":
+                _show_source_config()
+            elif choice == "4":
+                _show_index_status()
+            else:
+                print("無效選項，請輸入 0～4。")
+        except EOFError:
+            print("\n已離開。")
+            return 0
+        except KeyboardInterrupt:
+            print("\n已取消目前操作，返回主選單。")
+        except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
+            print(f"操作未完成：{exc}")
+
 
 
 def main() -> int:

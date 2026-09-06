@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 import hashlib
+import json
 import re
 from typing import Iterable
 
@@ -68,6 +69,11 @@ class HashingEmbeddingProvider(EmbeddingProvider):
             "name": "hashing-local",
             "dimension": self.dimension,
             "semantic_groups": len(SEMANTIC_GROUPS),
+            # 特徵或 tokenizer 邏輯變動時需遞增版本；同義詞另以雜湊驗證。
+            "algorithm_version": 1,
+            "synonyms_sha256": hashlib.sha256(json.dumps(
+                SEMANTIC_GROUPS, ensure_ascii=False, sort_keys=True
+            ).encode("utf-8")).hexdigest(),
         }
 
     def _embed_one(self, text: str) -> np.ndarray:
@@ -147,4 +153,3 @@ def create_embedding_provider(dimension: int = 512) -> EmbeddingProvider:
     """集中建立預設 provider，日後可由設定切換實作。"""
 
     return HashingEmbeddingProvider(dimension=dimension)
-

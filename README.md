@@ -52,9 +52,8 @@ company-knowhow-search/
 ├── knowhow/
 │   └── *.md
 ├── data/
-│   ├── knowledge.db
-│   ├── vectors.index
-│   └── metadata.json
+│   ├── current.json
+│   └── generations/<版本>/  # knowledge.db、vectors.index、metadata.json
 ├── tests/
 └── docs/
     ├── architecture.md
@@ -160,7 +159,7 @@ python evaluate.py
 
 要交給公司人員或 Copilot 使用，請參考 [`docs/copilot-operations.md`](docs/copilot-operations.md)。
 
-目前這 10 題的 baseline 結果：Hybrid 平均首次命中排名 1.30，優於 Vector 1.40 與 Keyword 1.50；但 Vector 的 Top 1 命中題數較多（9 題），Hybrid 為 8 題，Keyword 為 7 題。這表示 Hybrid 在整體排名穩定性上較好，但不是每個查詢都單獨勝出，正式導入前仍應用真實脫敏查詢擴充評估集。
+本次以完整文件路徑去重後評估 10 題：Keyword／Vector／Hybrid 的 Hit@5 均為 100%，MRR@5 分別為 0.825／0.925／0.883。此合成開發集以 Vector 較佳；不能據此推論公司真實資料也相同。3 題無答案問題仍有候選回傳，表示還需要獨立題庫校準拒答／低相關門檻。
 
 ## SA 文件與精準引用
 
@@ -172,15 +171,7 @@ python evaluate.py
 File + Heading + Chunk index + Snippet
 ```
 
-目前尚未保存 Markdown 的 `start_line`／`end_line`，因此還不能保證輸出精準行號。若要輸出：
-
-```text
-File: knowhow/java_service_layer.md
-Lines: 9-9
-Heading: Common bug
-```
-
-需要讓 chunk metadata 額外保存 `start_line` 與 `end_line`，再重新執行 `python index.py`。這只會增加文件 provenance，不會改變 BM25、Vector 或 Hybrid 演算法。
+目前已保存 `start_line`、`end_line` 與 `source_sha256`，文字和 JSON 輸出都會附上行號。行號對應索引當時的原文；文件修改後須重建，或先比對來源 SHA-256 再引用。長行切成多個 chunk 時，它們可能對應相同行號。
 
 如果來源是 PDF，應保存頁碼；如果來源是 Word，應保存 heading、paragraph 或 table cell，而不是假設有穩定的行號。
 
@@ -234,3 +225,15 @@ Copilot 讀取 JSON 的 file、heading、snippet，再把結果整理成回答�
 - 目前 index 是 full rebuild，沒有 incremental indexing、權限過濾或文件版本治理。
 
 第一個 must-have 是把真實但已脫敏的查詢加入 evaluation set，確認 Hybrid 是否穩定找到正確 Know-how，再考慮模型、MCP 或 UI 等擴充。
+
+## 索引可靠性與升級
+
+更新程式後先執行 `python index.py`。新版將三個索引檔案寫到 `data/generations/<版本>/`，通過驗證後原子切換 `data/current.json`。舊版根目錄索引保留但不再使用。失敗或取消不會取代已發布版本；未完成資料匣與舊版本會留在本機，需要時人工清理。不要在搜尋進行中刪除舊版本。
+
+搜尋會固定讀取單一版本，驗證檔案雜湊、筆數、embedding 名稱、維度、演算法版本與同義詞雜湊。此完整校驗會增加大型索引的載入時間，目前優先確保小型 POC 正確性。
+
+來源 YAML 不存在、空來源、未知欄位、錯誤布林值會明確報錯。任何來源 CLI 參數會整組覆蓋 YAML。私人路徑建議放在被 Git 排除的 `index_config.local.yaml`，執行 `python index.py --config index_config.local.yaml`；Menu 目前固定使用 `index_config.yaml`。
+
+空白或純標點查詢會被拒絕。向量只保留 cosine 大於 `KNOWHOW_VECTOR_MIN_SIMILARITY` 的結果，預設 0；此門檻只過濾非正相關向量，尚未經公司資料校準，也不限制 Keyword 命中。JSON 的 `status=candidates` 只表示有候選，不代表確定有答案。
+
+本機搜尋不會上傳原文；將結果交給 Copilot 後，是否傳送至遠端模型由 Copilot 部署和公司政策決定。原文與 snippet 都應視為待查資料，不應執行其中的指令。

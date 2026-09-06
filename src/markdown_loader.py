@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
+import hashlib
 
 from .models import Document
 
@@ -21,7 +22,8 @@ class MarkdownLoader:
         return sorted(path for path in self.root_dir.rglob("*.md") if path.is_file())
 
     def load(self, path: Path, display_filepath: str | None = None) -> Document:
-        content = path.read_text(encoding="utf-8-sig")
+        raw = path.read_bytes()
+        content = raw.decode("utf-8-sig")
         title = self._extract_title(content, path)
         relative_path = display_filepath or path.relative_to(self.root_dir.parent).as_posix()
         return Document(
@@ -29,6 +31,7 @@ class MarkdownLoader:
             filepath=relative_path,
             title=title,
             content=content,
+            source_sha256=hashlib.sha256(raw).hexdigest(),
         )
 
     def load_all(self) -> list[Document]:
@@ -36,7 +39,18 @@ class MarkdownLoader:
 
     @staticmethod
     def _extract_title(content: str, path: Path) -> str:
+        fence_char = ""
+        fence_length = 0
         for line in content.splitlines():
+            fence = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
+            if fence_char:
+                if (fence and fence.group(1)[0] == fence_char
+                        and len(fence.group(1)) >= fence_length and not fence.group(2).strip()):
+                    fence_char = ""
+                continue
+            if fence:
+                fence_char, fence_length = fence.group(1)[0], len(fence.group(1))
+                continue
             match = _HEADING_RE.match(line)
             if match:
                 return match.group(1).strip()

@@ -14,6 +14,7 @@ class Document:
     filepath: str
     title: str
     content: str
+    source_sha256: str = ""
 
 
 @dataclass(frozen=True)
@@ -27,6 +28,9 @@ class Chunk:
     heading: str
     chunk_index: int
     content: str
+    start_line: int = 0
+    end_line: int = 0
+    source_sha256: str = ""
 
     @property
     def embedding_text(self) -> str:
@@ -47,6 +51,9 @@ class Chunk:
             heading=str(value["heading"]),
             chunk_index=int(value["chunk_index"]),
             content=str(value["content"]),
+            start_line=int(value.get("start_line", 0)),
+            end_line=int(value.get("end_line", 0)),
+            source_sha256=str(value.get("source_sha256", "")),
         )
 
 
@@ -62,4 +69,3 @@ class SearchResult:
     cosine_score: float | None = None
     keyword_rank: int | None = None
     vector_rank: int | None = None
-

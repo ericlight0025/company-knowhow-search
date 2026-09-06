@@ -61,6 +61,13 @@ def build_fts_search_text(text: str) -> str:
     return " ".join(tokenize_text(text))
 
 
+def validate_query(query: str) -> None:
+    """阻擋空字串與只有標點的查詢，供所有入口共用。"""
+
+    if not query.strip() or not tokenize_text(query):
+        raise ValueError("查詢必須包含可搜尋的中文、英文或數字")
+
+
 def build_fts_query(query: str) -> str:
     """將查詢轉成安全的 FTS5 OR query。"""
 
@@ -79,4 +86,3 @@ def compact_text(text: str, max_chars: int = 260) -> str:
     if len(value) <= max_chars:
         return value
     return value[: max_chars - 1].rstrip() + "…"
-

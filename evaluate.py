@@ -24,6 +24,8 @@ def main() -> int:
         f"hybrid={rank_metrics['hybrid']['average']:.2f}"
     )
     print(f"No relevant Top 5 hit: {wins['皆未命中']}")
+    for mode, metric in rank_metrics.items():
+        print(f"{mode}: Hit@5={metric['hit_at_5']:.3f}, MRR@5={metric['mrr']:.3f}")
     return 0
 
 

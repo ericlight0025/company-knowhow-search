@@ -9,14 +9,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import os
+import math
 
 
 ROOT_DIR = Path(__file__).resolve().parent
 KNOWHOW_DIR = ROOT_DIR / "knowhow"
 DATA_DIR = ROOT_DIR / "data"
-DATABASE_PATH = DATA_DIR / "knowledge.db"
-VECTOR_INDEX_PATH = DATA_DIR / "vectors.index"
-METADATA_PATH = DATA_DIR / "metadata.json"
 
 
 # 領域同義詞只用來改善本機 POC 的向量召回，不會改寫原始 Markdown。
@@ -182,10 +180,17 @@ class SearchConfig:
     chunk_max_chars: int = int(os.getenv("KNOWHOW_CHUNK_MAX_CHARS", "2600"))
     default_top_k: int = int(os.getenv("KNOWHOW_DEFAULT_TOP_K", "5"))
     max_chunks_per_file: int = int(os.getenv("KNOWHOW_MAX_CHUNKS_PER_FILE", "1"))
+    vector_min_similarity: float = float(os.getenv("KNOWHOW_VECTOR_MIN_SIMILARITY", "0.0"))
 
     def validate(self) -> None:
         """驗證設定，避免索引建立到一半才發現權重錯誤。"""
 
+        if not all(math.isfinite(v) for v in (self.vector_weight, self.keyword_weight, self.vector_min_similarity)):
+            raise ValueError("權重與相似度門檻必須是有限數值")
+        if not -1 <= self.vector_min_similarity <= 1:
+            raise ValueError("vector_min_similarity 必須介於 -1 與 1")
+        if self.default_top_k <= 0:
+            raise ValueError("default_top_k 必須大於 0")
         if self.vector_weight < 0 or self.keyword_weight < 0:
             raise ValueError("vector_weight 與 keyword_weight 不可為負數")
         if self.vector_weight + self.keyword_weight <= 0:

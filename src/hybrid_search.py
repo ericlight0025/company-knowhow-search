@@ -5,7 +5,10 @@ from __future__ import annotations
 from dataclasses import replace
 import json
 
-from config import METADATA_PATH, SearchConfig, VECTOR_INDEX_PATH, DATABASE_PATH
+from config import DATA_DIR, SearchConfig
+from pathlib import Path
+from .index_store import resolve_generation
+from .text_utils import validate_query
 
 from .embedding_provider import EmbeddingProvider, create_embedding_provider
 from .fts_index import FTSIndex
@@ -30,32 +33,42 @@ class HybridSearcher:
         self.config.validate()
 
     @classmethod
-    def load(cls, config: SearchConfig | None = None) -> "HybridSearcher":
+    def load(cls, config: SearchConfig | None = None, data_dir: Path = DATA_DIR) -> "HybridSearcher":
         config = config or SearchConfig()
         config.validate()
-        if not METADATA_PATH.exists() or not DATABASE_PATH.exists() or not VECTOR_INDEX_PATH.exists():
-            raise FileNotFoundError("搜尋 index 尚未建立，請先執行：python index.py")
-        payload = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
+        generation = resolve_generation(data_dir)
+        payload = json.loads((generation / "metadata.json").read_text(encoding="utf-8"))
+        if payload.get("format_version") != 2 or payload.get("generation") != generation.name:
+            raise ValueError("索引版本不一致，請重新建立索引")
         chunks = [Chunk.from_dict(item) for item in payload.get("chunks", [])]
         provider = create_embedding_provider(config.embedding_dimension)
         vector_index = VectorIndex.load(
-            VECTOR_INDEX_PATH,
+            generation / "vectors.index",
             chunks,
             provider,
             provider_metadata=payload.get("embedding_provider"),
         )
-        return cls(FTSIndex(DATABASE_PATH), vector_index, provider, config)
+        fts = FTSIndex(generation / "knowledge.db")
+        if fts.count() != len(chunks) or payload.get("chunk_count") != len(chunks):
+            raise ValueError("索引筆數不一致，請重新建立索引")
+        searcher = cls(fts, vector_index, provider, config)
+        searcher.index_metadata = payload
+        searcher.generation = generation
+        return searcher
 
     def keyword_search(self, query: str, top_k: int) -> list[SearchResult]:
         return self.fts_index.search(query, top_k)
 
     def vector_search(self, query: str, top_k: int) -> list[SearchResult]:
-        return self.vector_index.search(query, self.provider, top_k)
+        return self.vector_index.search(query, self.provider, top_k, self.config.vector_min_similarity)
 
     def hybrid_search(self, query: str, top_k: int) -> list[SearchResult]:
+        validate_query(query)
+        if top_k <= 0:
+            return []
         candidate_limit = max(top_k * 5, 20)
-        keyword_results = self.keyword_search(query, candidate_limit)
-        vector_results = self.vector_search(query, candidate_limit)
+        keyword_results = self.keyword_search(query, candidate_limit) if self.config.keyword_weight else []
+        vector_results = self.vector_search(query, candidate_limit) if self.config.vector_weight else []
 
         fused: dict[str, SearchResult] = {}
         for result in keyword_results:

@@ -17,11 +17,10 @@ class VectorSearchTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             index = VectorIndex.build(Path(directory) / "vectors.index", chunks, provider)
             index.save()
-            results = index.search("contract change cash value recompute", provider, top_k=2)
+            results = index.search("contract change cash value recompute", provider, top_k=2, min_similarity=-1)
         self.assertEqual(results[0].chunk.source_file, "cash.md")
         self.assertGreaterEqual(results[0].cosine_score or 0.0, results[1].cosine_score or 0.0)
 
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -33,10 +33,28 @@ EVALUATION_CASES: tuple[EvaluationCase, ...] = (
 
 
 def first_relevant_rank(results: list[SearchResult], relevant_files: tuple[str, ...]) -> int | None:
+    expected = {name if "/" in name else f"knowhow/{name}" for name in relevant_files}
     for rank, result in enumerate(results, start=1):
-        if result.chunk.source_file in relevant_files:
+        if result.chunk.filepath in expected:
             return rank
     return None
+
+
+def unique_documents(results: list[SearchResult], top_k: int) -> list[SearchResult]:
+    """三種模式統一以完整來源路徑去重，避免同名檔案混淆。"""
+    selected = {}
+    for result in results:
+        selected.setdefault(result.chunk.filepath, result)
+    return list(selected.values())[:top_k]
+
+
+def rank_metrics_for(ranks: list[int | None]) -> dict[str, float | int]:
+    """所有題目都進入分母，未命中在 MRR 計為零。"""
+    hits = [rank for rank in ranks if rank is not None]
+    return {"top1": sum(rank == 1 for rank in ranks),
+            "hit_at_5": len(hits) / len(ranks) if ranks else 0.0,
+            "mrr": sum(1 / rank for rank in hits) / len(ranks) if ranks else 0.0,
+            "average": sum(hits) / len(hits) if hits else float("inf")}
 
 
 def _rank_quality(rank: int | None) -> float:
@@ -76,11 +94,12 @@ def generate_report(searcher: HybridSearcher, output_path: Path, top_k: int = 5)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     records: list[dict[str, object]] = []
+    candidate_count = max(top_k, len(searcher.vector_index.chunks))
     for case in EVALUATION_CASES:
         results = {
-            "keyword": searcher.keyword_search(case.query, top_k),
-            "vector": searcher.vector_search(case.query, top_k),
-            "hybrid": searcher.hybrid_search(case.query, top_k),
+            "keyword": unique_documents(searcher.keyword_search(case.query, candidate_count), top_k),
+            "vector": unique_documents(searcher.vector_search(case.query, candidate_count), top_k),
+            "hybrid": unique_documents(searcher.hybrid_search(case.query, candidate_count), top_k),
         }
         ranks = {mode: first_relevant_rank(value, case.relevant_files) for mode, value in results.items()}
         records.append(
@@ -108,11 +127,7 @@ def generate_report(searcher: HybridSearcher, output_path: Path, top_k: int = 5)
     rank_metrics: dict[str, dict[str, float | int]] = {}
     for mode, label in (("keyword", "Keyword"), ("vector", "Vector"), ("hybrid", "Hybrid")):
         ranks = [record["ranks"][mode] for record in records]
-        hits = [rank for rank in ranks if rank is not None]
-        rank_metrics[mode] = {
-            "top1": sum(1 for rank in hits if rank == 1),
-            "average": sum(hits) / len(hits) if hits else float("inf"),
-        }
+        rank_metrics[mode] = rank_metrics_for(ranks)
 
     lines = [
         "# Search Evaluation",
@@ -120,6 +135,8 @@ def generate_report(searcher: HybridSearcher, output_path: Path, top_k: int = 5)
         "> 這份報告由 `python evaluate.py` 實際執行產生。Relevant file 是 POC 的人工標註，排名以主要案例第一次出現在 Top 5 的位置衡量。",
         "",
         "## Summary",
+        "",
+        "> 三種模式使用相同候選上限，按完整檔案路徑去重後比較 Top 5。平均排名僅限命中題；判斷品質請同時看 Hit@5 與 MRR。這是合成資料的開發集，不是獨立測試集。",
         "",
         "| Metric | Value |",
         "|---|---:|",
@@ -192,7 +209,18 @@ def generate_report(searcher: HybridSearcher, output_path: Path, top_k: int = 5)
             "",
         ]
     )
-    output_path.write_text("\n".join(lines), encoding="utf-8")
+    lines.extend(["", "## Document-level metrics", "",
+                  "| Mode | Hit@5 | MRR@5 |", "|---|---:|---:|"])
+    for mode, metric in rank_metrics.items():
+        lines.append(f"| {mode} | {metric['hit_at_5']:.3f} | {metric['mrr']:.3f} |")
+    # 負例揭露誤召回，不因為向量有回傳就聲稱存在答案。
+    lines.extend(["", "## 無答案查詢檢查", "",
+                  "下列問題在合成 Know-how 無對應答案；數字是回傳候選數，越多不代表越好。尚未用公司題庫校準門檻。", "",
+                  "| Query | Keyword | Vector | Hybrid |", "|---|---:|---:|---:|"])
+    for query in ("火星探測器如何校正軌道", "義大利麵食譜番茄醬比例", "蘭花葉片枯黃如何施肥"):
+        counts = [len(searcher.search(query, top_k, mode)) for mode in ("keyword", "vector", "hybrid")]
+        lines.append(f"| {query} | {counts[0]} | {counts[1]} | {counts[2]} |")
+    output_path.write_text("\n".join(lines).replace("  \n", "\n\n"), encoding="utf-8")
     return {
         "records": records,
         "wins": wins,
@@ -203,6 +231,8 @@ def generate_report(searcher: HybridSearcher, output_path: Path, top_k: int = 5)
 
 
 def _reason_for_case(case: EvaluationCase, best: str, ranks: dict[str, int | None]) -> str:
+    if "並列" in best:
+        return "這些模式的第一份標註相關文件排名相同；單靠排名無法推論是哪項特徵造成命中。"
     if best.startswith("Hybrid"):
         return "Hybrid 同時保留精準術語的 BM25 命中與同義／描述差異的向量召回，主要案例在三種結果中排名最前或並列最前。"
     if best == "Keyword":

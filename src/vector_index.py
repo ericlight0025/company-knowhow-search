@@ -9,6 +9,7 @@ import numpy as np
 
 from .embedding_provider import EmbeddingProvider
 from .models import Chunk, SearchResult
+from .text_utils import validate_query
 
 
 class VectorIndex:
@@ -45,11 +46,15 @@ class VectorIndex:
             vectors = np.load(handle)
         current_metadata = provider.metadata()
         saved_metadata = provider_metadata or {}
+        if saved_metadata != current_metadata:
+            raise ValueError("Embedding 設定或版本已改變，請重新執行 index.py")
         saved_dimension = int(saved_metadata.get("dimension", vectors.shape[1] if vectors.ndim == 2 else 0))
         if vectors.ndim != 2 or vectors.shape[0] != len(chunks):
             raise ValueError("向量 index 與 metadata 的 chunk 數量不一致，請重新執行 index.py")
         if vectors.shape[1] != saved_dimension or vectors.shape[1] != int(current_metadata["dimension"]):
             raise ValueError("embedding dimension 不一致，請刪除 data 後重新執行 index.py")
+        if not np.isfinite(vectors).all():
+            raise ValueError("向量包含非有限數值，請重新建立索引")
         return cls(index_path, chunks, cls._normalize_rows(vectors), saved_metadata or current_metadata)
 
     def save(self) -> None:
@@ -57,17 +62,25 @@ class VectorIndex:
         with self.index_path.open("wb") as handle:
             np.save(handle, self.vectors)
 
-    def search(self, query: str, provider: EmbeddingProvider, top_k: int = 20) -> list[SearchResult]:
+    def search(self, query: str, provider: EmbeddingProvider, top_k: int = 20,
+               min_similarity: float = 0.0) -> list[SearchResult]:
+        validate_query(query)
         if top_k <= 0 or not self.chunks:
             return []
         query_vector = provider.embed_query(query)
+        if not np.isfinite(query_vector).all():
+            raise ValueError("查詢向量包含非有限數值")
+        if not np.any(query_vector):
+            return []
         query_vector = self._normalize_rows(np.asarray(query_vector, dtype=np.float32).reshape(1, -1))[0]
-        scores = self.vectors @ query_vector
+        scores = np.clip(self.vectors @ query_vector, -1.0, 1.0)
         ordered = np.argsort(-scores)[: min(top_k, len(self.chunks))]
         results: list[SearchResult] = []
         for rank, index in enumerate(ordered, start=1):
             chunk = self.chunks[int(index)]
             cosine_score = float(scores[int(index)])
+            if cosine_score <= min_similarity:
+                continue
             # cosine [-1, 1] 映射到較直觀的 [0, 1]，只是顯示用；hybrid 不直接相加。
             display_score = max(0.0, min(1.0, (cosine_score + 1.0) / 2.0))
             results.append(
@@ -89,4 +102,3 @@ class VectorIndex:
         norms = np.linalg.norm(matrix, axis=1, keepdims=True)
         norms[norms == 0] = 1.0
         return (matrix / norms).astype(np.float32)
-

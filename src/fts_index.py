@@ -6,13 +6,14 @@ from pathlib import Path
 import sqlite3
 
 from .models import Chunk, SearchResult
-from .text_utils import build_fts_query, build_fts_search_text
+from .text_utils import build_fts_query, build_fts_search_text, validate_query
 
 
 class FTSIndex:
     """使用單一 SQLite 檔案儲存可重建的 FTS5 index。"""
 
-    _BM25_WEIGHTS = (2.0, 1.0, 4.0, 4.0, 1.0, 2.0)
+    # 對應 chunk_id、filename、filepath、title、heading、content、search_text。
+    _BM25_WEIGHTS = (0.0, 2.0, 1.0, 4.0, 4.0, 1.0, 2.0, 0.0, 0.0, 0.0)
 
     def __init__(self, db_path: Path):
         self.db_path = db_path
@@ -34,6 +35,9 @@ class FTSIndex:
                     heading,
                     content,
                     search_text,
+                    start_line UNINDEXED,
+                    end_line UNINDEXED,
+                    source_sha256 UNINDEXED,
                     tokenize = 'unicode61 remove_diacritics 0'
                 )
                 """
@@ -41,8 +45,9 @@ class FTSIndex:
             connection.executemany(
                 """
                 INSERT INTO chunks_fts
-                    (chunk_id, filename, filepath, title, heading, content, search_text)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (chunk_id, filename, filepath, title, heading, content, search_text,
+                     start_line, end_line, source_sha256)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
                     (
@@ -53,6 +58,9 @@ class FTSIndex:
                         chunk.heading,
                         chunk.content,
                         build_fts_search_text(chunk.embedding_text),
+                        chunk.start_line,
+                        chunk.end_line,
+                        chunk.source_sha256,
                     )
                     for chunk in chunks
                 ],
@@ -66,11 +74,13 @@ class FTSIndex:
 
         if top_k <= 0:
             return []
+        validate_query(query)
         match_query = build_fts_query(query)
         weight_sql = ", ".join(str(weight) for weight in self._BM25_WEIGHTS)
         sql = f"""
             SELECT chunk_id, filename, filepath, title, heading, content,
-                   bm25(chunks_fts, {weight_sql}) AS bm25_score
+                   bm25(chunks_fts, {weight_sql}) AS bm25_score,
+                   start_line, end_line, source_sha256
             FROM chunks_fts
             WHERE chunks_fts MATCH ?
             ORDER BY bm25_score ASC
@@ -79,7 +89,7 @@ class FTSIndex:
         connection = None
         cursor = None
         try:
-            connection = sqlite3.connect(self.db_path)
+            connection = sqlite3.connect(self.db_path.resolve().as_uri() + "?mode=ro", uri=True)
             cursor = connection.cursor()
             cursor.execute(sql, (match_query, top_k))
             rows = cursor.fetchall()
@@ -102,6 +112,9 @@ class FTSIndex:
                 heading=str(row[4]),
                 chunk_index=self._chunk_index_from_id(chunk_id),
                 content=str(row[5]),
+                start_line=int(row[7]),
+                end_line=int(row[8]),
+                source_sha256=str(row[9]),
             )
             results.append(
                 SearchResult(
