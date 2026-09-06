@@ -1,0 +1,29 @@
+# Know-how index source selection。
+#
+# 每次執行 python index.py 都會完整重建 data/ 下的本機 index。
+# path 可以是專案相對路徑、C:/、D:/、U:/ 或 UNC 路徑。
+
+sources:
+  - path: "knowhow"
+    recursive: true
+    include:
+      - "*.md"
+    exclude: []
+
+  # 外部資料匣範例：取消註解後即可加入 U 槽來源。
+  # - path: "U:/CompanyKnowhow/SA"
+  #   recursive: true
+  #   include:
+  #     - "*.md"
+  #   exclude:
+  #     - "archive/**"
+
+# 可以列出少數指定文件；路徑可與 sources 同時使用。
+files: []
+
+# 例如：
+# files:
+#   - "C:/Company/SA/api_design.md"
+#   - "D:/Runbook/batch_retry.md"
+#   - "U:/CompanyKnowhow/incident_cv.md"
+
