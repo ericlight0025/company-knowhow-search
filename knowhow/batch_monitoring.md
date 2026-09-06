@@ -1,14 +1,31 @@
-# Batch Monitoring Dashboard
+# 批次值日生
 
-## Key metrics
+## 用途
 
-每個 batch dashboard 至少要顯示 run id、business date、queued、running、success、failed、retrying 與 stuck count。金額計算類批次還要顯示 input policy count、processed count 與 output amount total。
+提供批次值班人員每天的 JOB Check、異常通報與交接入口。
 
-## Alert rules
+## 常見問法
 
-當最後成功時間超過 SLA、failed ratio 超標、queue depth 持續增加或 calculation version 落後時告警。告警訊息要包含 execution id 與可直接查詢的 correlation id。
+- 批次值日生每天要做什麼？
+- 每天晚上 JOB 要檢查什麼？
+- Batch 掛掉要看哪份 SOP？
+- 值班人員交接文件在哪？
+- Batch Monitoring 的 SOP 在哪？
 
-## Runbook link
+## 常見技術詞
 
-告警不代表立刻重跑。先看 dependency、database lock、external file status 與前一個 execution 是否仍持有 lease，再依 batch retry runbook 決定補跑或人工介入。
+值日生、批次值班、Daily Operation、Batch Monitoring、JOB Check、排程、交接。
 
+## 原始資料位置
+
+- Word：`U:/Company/SOP/Batch/OPS_DAILY_CHECKLIST.docx`
+- Folder：`U:/Company/SOP/Batch/`
+
+## 下一步
+
+請用 Copilot Chat 或 Copilot CLI 讀取完整 SOP，依當日 JOB 與交接時段確認檢查項目。
+
+## 關鍵結論
+
+- 先依 Daily Checklist 確認所有排程狀態。
+- 異常先留存 JOB ID、時間與 log，再依 SOP 升級處理。

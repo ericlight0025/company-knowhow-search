@@ -1,14 +1,30 @@
-# Java Service Layer
+# 契變 Java 入口
 
-## Transaction boundary
+## 用途
 
-ContractChangeService 負責驗證異動、寫入 POLICY_CONTRACT_CHANGE 並發布 domain event。CVCalculationService 負責消費事件與計算現金價值；兩者不應被誤認為同一個 transaction。
+提供契變服務的 repository、module、class 與程式追查起點。
 
-## Common bug
+## 常見問法
 
-如果 service 在 transaction commit 前就 publish event，consumer 可能查不到新的 policy version，造成 calculation 使用舊資料。另一種常見問題是 API 回傳 success 後才非同步執行 batch，前台因此短時間顯示 previous value。
+- 契變的 Java Service 在哪？
+- contract change 後端 module 怎麼找？
+- 想追 API 呼叫到哪個 service？
 
-## Debugging
+## 常見技術詞
 
-排查時記錄 correlation id、transaction id、event id、policy version、consumer lag 與 calculation execution id。Java exception stack trace 要連同 root cause、retry 次數與資料庫 timeout 一起保存。
+Java、service、controller、repository、contract change、endorsement、API。
 
+## 原始資料位置
+
+- Java Folder：`D:/workspace/contract-change/`
+- Java：`D:/workspace/contract-change/src/ContractChangeService.java`
+- Word：`U:/Company/SPEC/ContractChange/`
+
+## 下一步
+
+請用 Copilot CLI 在既有 repository 搜尋 method、caller、callee 與 SQL。
+
+## 關鍵結論
+
+- 本卡不建立 Java method index。
+- 程式細節以 repository 的實際版本為準。

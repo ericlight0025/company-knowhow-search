@@ -1,14 +1,31 @@
-# 批次處理標準作業
+# 外部檔案重送
 
-## Lifecycle
+## 用途
 
-批次工作由 scheduler 建立 execution，依序執行 prepare、process、commit、publish 四個階段。每個 execution 都有 business date、run id、worker id 與 status。不要只看 Windows Task Scheduler 顯示的啟動成功。
+提供外部檔案傳輸失敗後的重送條件、SOP 與紀錄位置。
 
-## Data consistency
+## 常見問法
 
-長時間批次應採 chunked processing 與 checkpoint。每個 chunk 完成後寫入 progress，讓失敗時可以從 checkpoint 繼續，而不是重複處理全部保單。跨表更新要確認 transaction boundary。
+- 外部檔案失敗後要找哪份重送 SOP？
+- 檔案可以重送嗎？
+- SFTP failed 要怎麼 resend？
+- 重送後如何確認對方已收到？
 
-## Monitoring
+## 常見技術詞
 
-監控項目包含 queue depth、success rate、平均處理時間、retry count、stuck execution 與最後成功 business date。若 calculation batch 沒有完成，應先確認 upstream contract event 是否已送出。
+外部檔案、重送、resend、retry、SFTP、傳輸失敗、duplicate、acknowledgement。
 
+## 原始資料位置
+
+- Word：`U:/Company/SOP/ExternalFile/FILE_RESEND_GUIDE.docx`
+- Folder：`U:/Company/SOP/ExternalFile/`
+- Log Folder：`U:/Company/Logs/ExternalFile/`
+
+## 下一步
+
+請先依重送 SOP 檢查檔案版本與接收狀態，再由 Copilot CLI 協助閱讀傳輸 log。
+
+## 關鍵結論
+
+- 重送前要確認對方未成功收檔，避免 duplicate。
+- 重送後需保留檔案批號、時間與確認結果。

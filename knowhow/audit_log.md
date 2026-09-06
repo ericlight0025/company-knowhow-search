@@ -1,14 +1,29 @@
-# Audit Log 與追蹤欄位
+# 操作紀錄入口
 
-## Required fields
+## 用途
 
-重要異動至少記錄 event id、request id、correlation id、operator、source system、before value、after value、timestamp 與 result。敏感資料需遮罩，但不能刪掉能串起 incident 的識別碼。
+定位使用者操作、批次執行與資料異動的 audit log 查詢規格。
 
-## Search example
+## 常見問法
 
-排查契約變更與金額問題時，先以 policy id 和 correlation id 找到 API request，再沿著 transaction、event、batch execution、calculation version 查詢。
+- 誰改過這筆資料？
+- 操作紀錄要去哪找？
+- batch 執行歷程怎麼看？
 
-## Retention
+## 常見技術詞
 
-Audit log retention 依公司規範與法遵要求設定。刪除或封存前要確認 incident、稽核與資料修復仍能取得必要證據。
+audit log、操作紀錄、operator、trace id、資料異動、job log。
 
+## 原始資料位置
+
+- Word：`U:/Company/SPEC/Common/AUDIT_LOG_SPEC.docx`
+- SQL Folder：`U:/SQL/Common/AuditLog/`
+
+## 下一步
+
+請用既有 log 平台或 DBeaver 查詢，再由 Copilot CLI 協助閱讀欄位用途。
+
+## 關鍵結論
+
+- 查核需保留時間範圍、操作人與 trace id。
+- 正式稽核紀錄以原始系統為準。

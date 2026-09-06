@@ -1,14 +1,29 @@
-# Oracle Table Reference
+# Oracle 資料表入口
 
-## Core tables
+## 用途
 
-POLICY_MASTER 保存保單主資料，POLICY_CONTRACT_CHANGE 保存契約異動，POLICY_VALUE_HISTORY 保存每次 cash value calculation 的結果，POLICY_LOAN_ACCOUNT 保存保單借款帳戶與 POLICY_LOAN_AMT。
+提供常見保單、契變與金額資料表的資料字典導航。
 
-## Useful columns
+## 常見問法
 
-查詢金額問題時，常用 POLICY_ID、POLICY_VERSION、EFFECTIVE_DATE、CASH_VALUE、SURRENDER_VALUE、POLICY_LOAN_AMT、CALCULATION_VERSION 與 LAST_CALCULATED_AT。欄位名稱可能在 Java DTO 使用 camelCase，但 database 使用 uppercase snake case。
+- 契變資料 Table 在哪？
+- POLICY_LOAN_AMT 屬於哪張表？
+- 保價金欄位可能在哪？
 
-## Relationship
+## 常見技術詞
 
-POLICY_CONTRACT_CHANGE.CHANGE_ID 會關聯 calculation request。用 POLICY_ID 找資料時，不能忽略 POLICY_VERSION，否則可能把前一版契約與新一版現金價值混在一起。
+Oracle、Table、Column、data dictionary、POLICY_LOAN_AMT、Cash Value、契變。
 
+## 原始資料位置
+
+- Excel：`U:/Company/DataDictionary/Oracle_Table_Column.xlsx`
+- SQL Folder：`U:/SQL/DataDictionary/`
+
+## 下一步
+
+請用 DBeaver 或既有 SQL Hit-rate Tool 查資料字典，再由 Copilot CLI 追程式使用處。
+
+## 關鍵結論
+
+- 卡片只提供資料字典入口，不保證欄位即為商業規則。
+- 查詢正式資料需遵守資料庫權限與個資規範。

@@ -1,14 +1,31 @@
-# Cash Value Recalculation
+# 保價金重算
 
-## Calculation timing
+## 用途
 
-保價金（cash value、CV）不是每次畫面查詢都即時計算。契約異動、保費入帳、利率更新後，系統會將保單放入 CV calculation batch，由夜間 scheduled process 重新計算。
+定位 Cash Value recalculation 的批次規格、資料條件與驗證方式。
 
-## Common symptom
+## 常見問法
 
-使用者可能說「保價金批次重新計算了嗎？」或「契變完成後金額還沒變」。技術上要看 CALCULATION_STATUS、CALCULATION_VERSION 及 LAST_CALCULATED_AT，而不是只看前台顯示值。
+- 保價金批次重新計算要看哪裡？
+- CV 沒重新計算以前是不是遇過？
+- 現金價值重算 JOB 是哪一支？
+- cash value recalculation 失敗如何檢查？
 
-## Recalculation procedure
+## 常見技術詞
 
-若 calculation job failed，先確認是否有 lock、資料庫 timeout 或上游 contract change 尚未 commit。修正原因後執行 controlled rerun，並以同一個 policy id 比對舊版與新版 cash value。所有人工補算都要留下 audit record。
+保價金、Cash Value、CV、現金價值、recalculation、batch、valuation date。
 
+## 原始資料位置
+
+- Word：`U:/Company/SPEC/PolicyValue/CV_RECALCULATION_SPEC.docx`
+- Java Folder：`D:/workspace/policy-value/`
+- SQL Folder：`U:/SQL/PolicyValue/`
+
+## 下一步
+
+請用 Copilot CLI 找出重算 JOB 與輸入條件，再以 batch log 驗證執行日。
+
+## 關鍵結論
+
+- CV 重算通常以批次與 valuation date 為準。
+- 異常時先確認是否有符合重算條件，再看 JOB 是否完成。

@@ -1,14 +1,30 @@
-# Policy Value Sync
+# 保單價值同步
 
-## Purpose
+## 用途
 
-Policy Value Sync 將主系統的保價金、解約金與貸款餘額同步到查詢 read model。同步可能由 event-driven consumer 或 daily batch 觸發，兩種路徑的 status 欄位不同。
+定位保單價值在服務、批次與查詢畫面間同步的規格。
 
-## Stale data check
+## 常見問法
 
-遇到查詢結果落後，檢查 source version、target version、last sync time、consumer lag 與 dead-letter queue。不要只看 target table 有沒有資料；有資料不代表它是最新版本。
+- 保單價值同步在哪裡做？
+- Cash Value 更新後畫面何時會看到？
+- value sync 異常怎麼查？
 
-## Repair
+## 常見技術詞
 
-repair job 應以 policy id 與 version 為範圍，先產生 dry-run 差異，再執行受控同步。完成後要確認 portal cache、API response 與下游 export 都讀到相同版本。
+policy value、同步、sync、Cash Value、CV、batch、API、畫面。
 
+## 原始資料位置
+
+- Word：`U:/Company/SPEC/PolicyValue/POLICY_VALUE_SYNC_SPEC.docx`
+- Java Folder：`D:/workspace/policy-value/`
+- SQL Folder：`U:/SQL/PolicyValue/`
+
+## 下一步
+
+請用 Copilot CLI 比對 batch、service 與 API 的資料流，再讀正式同步規格。
+
+## 關鍵結論
+
+- 同步完成時間可能不同於主交易完成時間。
+- 要以資料基準日與同步批號共同判斷。

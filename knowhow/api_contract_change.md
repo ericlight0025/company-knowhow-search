@@ -1,14 +1,34 @@
-# API Contract Change
+# 契變電訪
 
-## Endpoint
+## 用途
 
-POST `/api/policies/{policyId}/contract-changes` 接收契約變更請求，request 需要 changeType、effectiveDate、requestId 與 operator。成功回應代表請求已接受，不代表 cash value 或 surrender value 已完成重新計算。
+說明契約變更後是否需要產生電訪案件的規則與原始設計位置。
 
-## Callback and event
+## 常見問法
 
-完成後會送出 POLICY_CONTRACT_CHANGE event；部分整合客戶仍使用 callback。若 callback timeout，producer 應保留 delivery status 並進入 retry，而不是重建一筆新的契約變更。
+- 契變保額異動後沒有進電訪。
+- 電訪案件沒產生要查哪裡？
+- 契約變更需要電訪嗎？
+- 金額異動卻沒有進 TeleCall。
+- contract change telecall 規則在哪？
 
-## Compatibility
+## 常見技術詞
 
-新增欄位要維持 backward compatibility，enum 變更要先確認 Java client 與 batch consumer。Incident 排查可用 requestId、changeId、eventId 串起 API、database 與 downstream job。
+電訪、電話訪問、TeleCall、Interview、Outbound Call、threshold、amount、change_type。
 
+## 原始資料位置
+
+- Word：`U:/Company/SPEC/ContractChange/TeleCall_SPEC.docx`
+- Java：`D:/workspace/contract-change/src/TeleCallRuleService.java`
+- JSP：`D:/workspace/contract-change/web/teleCall.jsp`
+- JS：`D:/workspace/contract-change/web/teleCall.js`
+- SQL Folder：`U:/SQL/ContractChange/`
+
+## 下一步
+
+請用 Copilot CLI 從 TeleCallRuleService 追規則、呼叫端與 SQL；再以規格確認門檻。
+
+## 關鍵結論
+
+- 是否產生電訪取決於 change_type 與金額門檻。
+- 規格、Java 與前端欄位需一起比對，不能只看單一畫面。

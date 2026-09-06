@@ -1,14 +1,30 @@
-# Incident：政策金額短暫不一致
+# 歷史 Incident
 
-## Symptoms
+## 用途
 
-release 後少數客戶看到的保單金額與後台查詢不同，重新整理或等待下一次 job 後恢復。客服描述為「金額跳回去」或「今天看到的跟昨天不一樣」。
+提供歷史金額、資料同步與批次異常 Incident 的導航入口。
 
-## Investigation
+## 常見問法
 
-比對 read model、policy master、calculation history 與 cache timestamp，確認是否存在 eventual consistency。此次事件不是資料遺失，而是 API 讀到尚未 publish 的舊版本。
+- 以前有沒有類似金額異常的 Incident？
+- 歷史事故報告在哪？
+- 批次或同步造成的問題怎麼回查？
+- incident postmortem 要去哪找？
 
-## Action
+## 常見技術詞
 
-增加 version check 與 stale response warning，並將 cache invalidation 放在 calculation commit 後。所有 temporary workaround 都要有期限，避免長期保留人工刷新流程。
+Incident、postmortem、RCA、金額異常、資料同步、batch、補救措施。
 
+## 原始資料位置
+
+- Folder：`U:/Company/Incident/`
+- Excel：`U:/Company/Incident/Incident_Register.xlsx`
+
+## 下一步
+
+請用 Copilot Chat 依日期、系統與關鍵詞讀取完整 Incident 與 RCA。
+
+## 關鍵結論
+
+- 歷史 Incident 用來找相似排查方向，不取代本次根因分析。
+- 結論需回到當前 log、資料與版本驗證。

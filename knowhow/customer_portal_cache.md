@@ -1,14 +1,32 @@
-# Customer Portal Cache
+# 契變畫面
 
-## Cache behavior
+## 用途
 
-前台 portal 會快取 policy summary、cash value 與 loan balance，以降低查詢主系統的頻率。cache key 必須包含 policy id 與 policy version，不能只使用 policy id。
+定位契變查詢與輸入畫面的 JSP、JS、後端入口及畫面欄位規格。
 
-## Stale display
+## 常見問法
 
-使用者看到舊金額不一定是 calculation 失敗，也可能是 cache invalidation 晚於資料 commit。排查時比對 API response version、cache created time、origin query time 與最後一次同步時間。
+- 契變畫面的 JSP / JS 在哪？
+- contract change 前端頁面在哪個 module？
+- 契變金額畫面由哪裡查出來？
+- endorsement screen 欄位怎麼找？
 
-## Safe invalidation
+## 常見技術詞
 
-只有在新 calculation version 已 commit 且 read model 已更新後才清除 cache。直接清 cache 可以暫時掩蓋問題，但不能取代 batch、event 或資料庫一致性檢查。
+契變畫面、contract change、endorsement、JSP、JS、screen、controller、欄位。
 
+## 原始資料位置
+
+- JSP：`D:/workspace/contract-change/web/contractChange.jsp`
+- JS：`D:/workspace/contract-change/web/contractChange.js`
+- Java Folder：`D:/workspace/contract-change/`
+- Word：`U:/Company/SPEC/ContractChange/SCREEN_SPEC.docx`
+
+## 下一步
+
+請用 Copilot CLI 由 JSP/JS 找 API 與 Java controller，再追實際資料來源。
+
+## 關鍵結論
+
+- 畫面顯示問題需先區分前端快取、API 與後端資料三層。
+- 請勿只依 JSP 判定實際商業規則。

@@ -1,14 +1,30 @@
-# Release Checklist
+# 系統規格文件
 
-## Before release
+## 用途
 
-確認 database migration、Java service、API contract、batch schedule、feature flag 與 rollback package。若包含 calculation rule，準備代表性 policy 的 before／after expected value。
+提供系統分析、設計規格與版本發布文件的總入口。
 
-## After release
+## 常見問法
 
-觀察 error rate、latency、queue depth、batch success、retry count、cache stale rate 與金額 reconciliation。不要只看服務健康檢查為 green 就結束驗證。
+- 系統規格文件在哪？
+- SA 文件要去哪找？
+- 某功能的設計書或 API spec 在哪？
+- 上線版本的規格怎麼追？
 
-## Incident readiness
+## 常見技術詞
 
-Release notes 必須列出 correlation id 查法、常見 log pattern、資料修復方式與聯絡人。若出現 API 成功但 downstream value 沒更新，優先確認 event、consumer、batch 與 cache 的順序。
+系統規格、SA、SD、SPEC、設計書、API spec、release、版本。
 
+## 原始資料位置
+
+- Folder：`U:/Company/SPEC/`
+- Folder：`U:/Company/Release/`
+
+## 下一步
+
+請用 Copilot Chat 讀取對應功能的完整 Word、Excel 或 PDF 規格。
+
+## 關鍵結論
+
+- 規格文件才是需求與流程的 Source of Truth。
+- 卡片只提供分類與路徑，不取代正式文件。

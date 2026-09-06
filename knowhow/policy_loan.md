@@ -1,14 +1,31 @@
-# 保單借款 POLICY_LOAN_AMT
+# 保單借款
 
-## Field usage
+## 用途
 
-POLICY_LOAN_AMT 是保單借款目前未清償的本金欄位，主要使用於 loan quotation、利息計算、解約金試算與 customer portal summary。查詢時通常需要搭配 POLICY_ID、LOAN_STATUS 與 AS_OF_DATE。
+定位保單借款規格、金額欄位與相關批次或服務入口。
 
-## Service flow
+## 常見問法
 
-Java PolicyLoanService 讀取 POLICY_LOAN_ACCOUNT，依借款交易與還款交易彙總 POLICY_LOAN_AMT。若保單剛完成契約變更，必須確認 policy version 與 loan snapshot 的 effective date 一致。
+- 保單借款規則文件在哪？
+- POLICY_LOAN_AMT 在哪裡使用？
+- 保單借款金額欄位怎麼查？
+- policy loan 的 Java module 在哪？
 
-## SQL hint
+## 常見技術詞
 
-不要用最新一筆交易金額直接當成 POLICY_LOAN_AMT。正確方式是依 value date 加總 principal debit、principal credit，並排除 reversal transaction。相關 Oracle table 與 index 見資料表參考文件。
+保單借款、policy loan、POLICY_LOAN_AMT、loan balance、利息、可借額度。
 
+## 原始資料位置
+
+- Word：`U:/Company/SPEC/PolicyLoan/POLICY_LOAN_SPEC.docx`
+- Java Folder：`D:/workspace/policy-loan/`
+- SQL Folder：`U:/SQL/PolicyLoan/`
+
+## 下一步
+
+請讓 Copilot CLI 在 policy-loan module 搜尋欄位與呼叫端，規則以 Word 規格確認。
+
+## 關鍵結論
+
+- 欄位命中只能作為程式追查起點。
+- 金額規則、利息與可借額度需以正式規格為準。

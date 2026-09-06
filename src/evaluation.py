@@ -19,16 +19,18 @@ class EvaluationCase:
 
 
 EVALUATION_CASES: tuple[EvaluationCase, ...] = (
-    EvaluationCase("A1", "精準 keyword", "POLICY_LOAN_AMT 在哪裡使用？", ("policy_loan.md", "oracle_table_reference.md")),
-    EvaluationCase("A2", "精準 keyword", "AML screening batch risk level", ("aml_screening.md",)),
-    EvaluationCase("A3", "精準 keyword", "POLICY_CONTRACT_CHANGE API callback", ("api_contract_change.md", "contract_change.md")),
-    EvaluationCase("A4", "精準 keyword", "PAYMENT_RECONCILIATION settlement amount mismatch", ("payment_reconciliation.md",)),
-    EvaluationCase("B1", "半模糊", "保價金批次重新計算", ("incident_cv_batch.md", "cash_value_recalculation.md", "batch_retry.md")),
-    EvaluationCase("B2", "半模糊", "保單借款金額欄位查詢", ("policy_loan.md", "oracle_table_reference.md")),
-    EvaluationCase("B3", "半模糊", "外部檔案傳輸失敗重送", ("external_file_transfer.md", "batch_retry.md")),
-    EvaluationCase("C1", "高度模糊 semantic", "客戶說改完保單後前台還是之前的數字，可能排程晚了", ("incident_cv_batch.md", "cv_stale_after_endorsement.md", "customer_portal_cache.md")),
-    EvaluationCase("C2", "高度模糊 semantic", "有人說資料修正後，部分保單的金額被重複計算，應該怎麼查？", ("batch_retry.md", "data_repair_runbook.md", "incident_cv_batch.md")),
-    EvaluationCase("C3", "高度模糊 semantic", "新規則上線後 API 與資料庫寫入順序造成保單資料不一致", ("java_service_layer.md", "api_contract_change.md", "release_checklist.md")),
+    EvaluationCase("L1", "Knowledge Map 定位", "批次值日生每天要做什麼？", ("batch_monitoring.md",)),
+    EvaluationCase("L2", "Knowledge Map 定位", "每天晚上 Batch JOB 要看哪份 SOP？", ("batch_monitoring.md",)),
+    EvaluationCase("L3", "Knowledge Map 定位", "以前那張資料變更單在哪裡？", ("data_repair_runbook.md",)),
+    EvaluationCase("L4", "Knowledge Map 定位", "以前是不是改過某個 Table 欄位？", ("data_repair_runbook.md",)),
+    EvaluationCase("L5", "Knowledge Map 定位", "契變保額異動後沒有進電訪。", ("api_contract_change.md",)),
+    EvaluationCase("L6", "Knowledge Map 定位", "電訪案件沒產生要查哪裡？", ("api_contract_change.md",)),
+    EvaluationCase("L7", "Knowledge Map 定位", "契變完成但保價金還是昨天的資料。", ("incident_cv_batch.md",)),
+    EvaluationCase("L8", "Knowledge Map 定位", "CV 沒重新計算以前是不是遇過？", ("incident_cv_batch.md", "cash_value_recalculation.md")),
+    EvaluationCase("L9", "Knowledge Map 定位", "外部檔案失敗後要找哪份重送 SOP？", ("batch_processing.md",)),
+    EvaluationCase("L10", "Knowledge Map 定位", "契變畫面的 JSP / JS 在哪？", ("customer_portal_cache.md",)),
+    EvaluationCase("L11", "Knowledge Map 定位", "契變相關 SQL 要去哪找？", ("sql_query_practices.md", "contract_change.md")),
+    EvaluationCase("L12", "Knowledge Map 定位", "AML 相關系統文件在哪？", ("aml_screening.md",)),
 )
 
 
@@ -52,6 +54,7 @@ def rank_metrics_for(ranks: list[int | None]) -> dict[str, float | int]:
     """所有題目都進入分母，未命中在 MRR 計為零。"""
     hits = [rank for rank in ranks if rank is not None]
     return {"top1": sum(rank == 1 for rank in ranks),
+            "top3": sum(rank is not None and rank <= 3 for rank in ranks),
             "hit_at_5": len(hits) / len(ranks) if ranks else 0.0,
             "mrr": sum(1 / rank for rank in hits) / len(ranks) if ranks else 0.0,
             "average": sum(hits) / len(hits) if hits else float("inf")}
@@ -132,7 +135,7 @@ def generate_report(searcher: HybridSearcher, output_path: Path, top_k: int = 5)
     lines = [
         "# Search Evaluation",
         "",
-        "> 這份報告由 `python evaluate.py` 實際執行產生。Relevant file 是 POC 的人工標註，排名以主要案例第一次出現在 Top 5 的位置衡量。",
+        "> 這份報告由 `python evaluate.py` 實際執行產生。Expected Card 是 POC 的人工標註，排名以主要卡片第一次出現在 Top 5 的位置衡量。",
         "",
         "## Summary",
         "",
@@ -150,22 +153,27 @@ def generate_report(searcher: HybridSearcher, output_path: Path, top_k: int = 5)
         "| Keyword Top 1 relevant | " + str(rank_metrics["keyword"]["top1"]) + " |",
         "| Vector Top 1 relevant | " + str(rank_metrics["vector"]["top1"]) + " |",
         "| Hybrid Top 1 relevant | " + str(rank_metrics["hybrid"]["top1"]) + " |",
+        "| Keyword Top 3 relevant | " + str(rank_metrics["keyword"]["top3"]) + " |",
+        "| Vector Top 3 relevant | " + str(rank_metrics["vector"]["top3"]) + " |",
+        "| Hybrid Top 3 relevant | " + str(rank_metrics["hybrid"]["top3"]) + " |",
         "| Keyword average first relevant rank | " + f"{rank_metrics['keyword']['average']:.2f}" + " |",
         "| Vector average first relevant rank | " + f"{rank_metrics['vector']['average']:.2f}" + " |",
         "| Hybrid average first relevant rank | " + f"{rank_metrics['hybrid']['average']:.2f}" + " |",
         "| No relevant result in Top " + str(top_k) + " | " + str(wins["皆未命中"]) + " |",
         "",
-        "### First relevant rank",
+        "### Expected card rank",
         "",
-        "| ID | Category | Query | Keyword | Vector | Hybrid | Best |",
-        "|---|---|---|---:|---:|---:|---|",
+        "| ID | Category | Query | Expected Card | Keyword rank | Vector rank | Hybrid rank | Hybrid Top 1 | Hybrid Top 3 | Best |",
+        "|---|---|---|---|---:|---:|---:|---|---|---|",
     ]
     for record in records:
         case = record["case"]
         ranks = record["ranks"]
         lines.append(
             f"| {case.case_id} | {case.category} | {case.query} | "
-            f"{ranks['keyword'] or '—'} | {ranks['vector'] or '—'} | {ranks['hybrid'] or '—'} | {record['best']} |"
+            f"{', '.join(case.relevant_files)} | {ranks['keyword'] or '—'} | {ranks['vector'] or '—'} | "
+            f"{ranks['hybrid'] or '—'} | {'是' if ranks['hybrid'] == 1 else '否'} | "
+            f"{'是' if ranks['hybrid'] is not None and ranks['hybrid'] <= 3 else '否'} | {record['best']} |"
         )
 
     lines.extend(["", "## Detailed Results", ""])
@@ -179,9 +187,9 @@ def generate_report(searcher: HybridSearcher, output_path: Path, top_k: int = 5)
                 "",
                 f"**Query:** {case.query}",
                 "",
-                f"**Expected files:** {', '.join(f'`{name}`' for name in case.relevant_files)}",
+                f"**Expected card:** {', '.join(f'`{name}`' for name in case.relevant_files)}",
                 "",
-                f"**Keyword first relevant rank:** {ranks['keyword'] or '未命中'}  \n**Vector first relevant rank:** {ranks['vector'] or '未命中'}  \n**Hybrid first relevant rank:** {ranks['hybrid'] or '未命中'}  \n**Best:** {best}",
+                f"**Keyword rank:** {ranks['keyword'] or '未命中'}  \n**Vector rank:** {ranks['vector'] or '未命中'}  \n**Hybrid rank:** {ranks['hybrid'] or '未命中'}  \n**Hybrid Top 1:** {'是' if ranks['hybrid'] == 1 else '否'}  \n**Hybrid Top 3:** {'是' if ranks['hybrid'] is not None and ranks['hybrid'] <= 3 else '否'}  \n**Best:** {best}",
                 "",
                 "#### Keyword Top 5",
                 "",

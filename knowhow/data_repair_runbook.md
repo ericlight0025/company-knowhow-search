@@ -1,14 +1,31 @@
-# Data Repair Runbook
+# 資料變更單
 
-## Before repair
+## 用途
 
-資料修復前先建立 read-only snapshot，記錄 affected policy ids、policy version、原始輸入、目前輸出與 incident ticket。確認修復範圍只包含已確認的 business date，不要用模糊條件更新整張表。
+提供資料修改單、欄位調整與歷史 Change Request 的查詢入口。
 
-## Rebuild value
+## 常見問法
 
-對保單金額不一致的案例，優先重建 calculation request，再讓標準 batch 產生新版本。若只能手動補資料，必須使用 idempotency key、保留 before／after、執行人與 approval。
+- 以前那張資料變更單在哪裡？
+- 以前是不是改過某個 Table 欄位？
+- 誰改過這筆資料？
+- Data Change 或 CR 紀錄在哪？
+- 資料修改單怎麼查？
 
-## Verification
+## 常見技術詞
 
-修復完成後比對主檔、history、read model、portal API 與 export output。若是 batch retry 造成重複計算，要檢查 duplicate execution、ledger balance 與 audit log。
+變更單、資料修改單、Change Request、CR、Data Change、Table、Column、申請單。
 
+## 原始資料位置
+
+- Excel：`U:/Company/ChangeRequest/2026/DataChangeList.xlsx`
+- Word Folder：`U:/Company/ChangeRequest/2026/`
+
+## 下一步
+
+請用 Copilot Chat 讀 Excel/Word 原始紀錄，依 Table、Column、日期與申請單號追查。
+
+## 關鍵結論
+
+- 卡片只定位變更紀錄，不保存實際修改內容。
+- 欄位異動需以 Change Request 與核准附件為準。

@@ -1,16 +1,31 @@
-# 契約變更與契變流程
+# 契變保價金
 
-## Business flow
+## 用途
 
-契約變更包含受益人、繳費方式、保額與保單狀態異動。Legacy 文件也會使用 endorsement、policy change、contract adjustment 等詞，搜尋時不能只依賴「契約變更」四個字。
+提供契約變更與保價金關聯規則的導航入口。
 
-契變交易先寫入 POLICY_CONTRACT_CHANGE，再由 Java service 產生待處理事件。事件完成後，保單查詢、保價金與解約金相關批次才會讀取新版本的契約資料。
+## 常見問法
 
-## Important fields
+- 契變會影響保價金嗎？
+- 契約變更後 Cash Value 怎麼處理？
+- contract adjustment 後 CV 是否立即更新？
+- endorsement 的保價金規格在哪？
 
-POLICY_CONTRACT_CHANGE.CHANGE_ID 是此次異動的識別碼，EFFECTIVE_DATE 決定生效日，CHANGE_STATUS 會經過 RECEIVED、VALIDATED、COMPLETED。若只看到 API 回應成功，不代表 downstream calculation 已完成。
+## 常見技術詞
 
-## Troubleshooting
+契變、契約變更、contract change、contract adjustment、endorsement、保價金、Cash Value、CV、現金價值。
 
-遇到異動後金額未更新，先比對 change transaction commit time、event status 與 calculation batch start time，再確認是否有 cache 或 retry queue 延遲。
+## 原始資料位置
 
+- Word：`U:/Company/SPEC/ContractChange/CashValue_Impact_SPEC.docx`
+- Folder：`U:/Company/SPEC/ContractChange/`
+- SQL Folder：`U:/SQL/ContractChange/`
+
+## 下一步
+
+請讓 Copilot Chat 讀完整規格，再依實際變更類型判斷是否需重算。
+
+## 關鍵結論
+
+- 契變完成不等同保價金已重算完成。
+- 保價金處理需同時確認契變狀態與後續 batch。

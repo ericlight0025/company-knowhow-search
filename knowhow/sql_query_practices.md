@@ -1,14 +1,31 @@
-# SQL 查詢與除錯慣例
+# SQL 查詢入口
 
-## Query rules
+## 用途
 
-除錯正式資料時，SQL 必須帶有適當的 where 條件與 row limit，先使用 explain plan 確認 index，再逐步放大範圍。不要在 production 直接執行沒有條件的 update 或 delete。
+提供既有 SQL 資料夾、可能資料表與安全查詢的導航，不建立第二套 SQL 語意引擎。
 
-## Insurance example
+## 常見問法
 
-查保價金時，常用 POLICY_ID、POLICY_VERSION、AS_OF_DATE 與 CALCULATION_STATUS。查契約變更時，應依 CHANGE_ID、EFFECTIVE_DATE 排序，並將 event status 與 batch execution 一起比對。
+- 契變相關 SQL 要去哪找？
+- 保價金的 Table 或 Column 可能在哪？
+- SQL 查詢入口在哪？
+- 想查歷史資料要看哪個資料夾？
 
-## Evidence
+## 常見技術詞
 
-Incident 記錄應保存 SQL template、查詢時間、database schema、row count 與遮罩後的 sample id。敏感欄位不得貼到公開 issue 或未授權的聊天工具。
+SQL、Table、Column、DBeaver、query、契變、保價金、Cash Value、CV。
 
+## 原始資料位置
+
+- SQL Folder：`U:/SQL/ContractChange/`
+- SQL Folder：`U:/SQL/PolicyValue/`
+- Tool：既有 SQL Hit-rate Tool / DBeaver。
+
+## 下一步
+
+請使用既有 SQL Hit-rate Tool 或 DBeaver 搜尋實際 SQL；再由 Copilot CLI 協助閱讀 query 與程式呼叫點。
+
+## 關鍵結論
+
+- 本卡僅提供可能的 Table/Column 與資料夾線索。
+- 實際 SQL 意義與執行風險應由既有工具與資料庫權限控管。

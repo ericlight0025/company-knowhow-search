@@ -1,14 +1,30 @@
-# Premium Adjustment
+# 保費調整
 
-## Adjustment flow
+## 用途
 
-保費調整依契約變更、費率版本、生效日與收費週期重新計算 premium。調整結果會影響後續 cash value calculation，但不一定在同一個 API request 內完成。
+定位保費調整規則、契變影響與相關資料查詢入口。
 
-## Error pattern
+## 常見問法
 
-若契變後保費正確而保價金未變，通常要看 calculation queue、rate version 與批次 execution，而不是重新送出相同的 contract change request。
+- 保費調整規則在哪？
+- 契變後保費為什麼不同？
+- premium adjustment 的規格要看哪裡？
 
-## Validation
+## 常見技術詞
 
-驗證時以 policy id、effective date、premium version 與 calculation version 對照。所有人工調整都要能在 audit log 還原。
+保費、premium、adjustment、契變、endorsement、計費、effective date。
 
+## 原始資料位置
+
+- Word：`U:/Company/SPEC/Premium/PREMIUM_ADJUSTMENT_SPEC.docx`
+- Java Folder：`D:/workspace/premium/`
+- SQL Folder：`U:/SQL/Premium/`
+
+## 下一步
+
+請由 Copilot Chat 閱讀規格，並讓 Copilot CLI 追查計費 service 與資料來源。
+
+## 關鍵結論
+
+- 保費調整需確認生效日、契變類型與計費基準。
+- 不應從單一顯示金額直接推論規則錯誤。

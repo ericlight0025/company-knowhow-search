@@ -1,14 +1,31 @@
-# AML Screening 批次
+# AML 交易檢核
 
-## Scope
+## 用途
 
-AML（anti-money laundering）screening batch 每日依 customer、policy、payment 與 beneficiary data 執行風險篩檢。結果會產生 risk level、screening status 與 review queue，供合規人員人工複核。
+定位 AML 交易檢核規格、批次與案件資料來源。
 
-## Data flow
+## 常見問法
 
-夜間 job 先匯入 watchlist，再處理 customer matching、transaction threshold 與 sanction hit。外部名單檔案沒有完成交換時，batch 不應把所有客戶標成 clean，而要維持 INPUT_PENDING。
+- AML 相關系統文件在哪？
+- AML 交易檢核規則要看哪份規格？
+- screening batch 異常怎麼查？
+- 可疑交易案件資料在哪？
 
-## Troubleshooting
+## 常見技術詞
 
-查詢 AML screening 結果時，確認 batch run id、watchlist version、risk level、match score 與 exception reason。若重跑，必須使用相同的 business date 並保留原始結果與 audit trail。
+AML、Anti-Money Laundering、screening、交易檢核、risk level、alert、batch。
 
+## 原始資料位置
+
+- Word：`U:/Company/SPEC/AML/AML_TRANSACTION_SCREENING_SPEC.docx`
+- Java Folder：`D:/workspace/aml/`
+- SQL Folder：`U:/SQL/AML/`
+
+## 下一步
+
+請由 Copilot Chat 讀取 AML 規格；程式追查請交給 Copilot CLI 在既有 module 內進行。
+
+## 關鍵結論
+
+- AML 規則以正式規格與合規版本為準。
+- 卡片不保存敏感交易資料或檢核細節。

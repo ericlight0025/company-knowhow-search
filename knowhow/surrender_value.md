@@ -1,14 +1,31 @@
-# 解約金計算與查詢
+# 解約金
 
-## Business definition
+## 用途
 
-解約金（surrender value）是保單終止或解約時依保單年度、累積保費、保價金與費用規則計算的金額。部分文件稱 cash surrender value，不要與一般 cash value 混用。
+定位解約金計算規格、保價金關聯與查詢入口。
 
-## Calculation dependency
+## 常見問法
 
-解約金服務會讀取最新的 policy version、cash value、loan balance 與 surrender factor。契約變更完成後若保價金尚未重新計算，解約金也可能暫時沿用舊版資料。
+- 解約金怎麼計算？
+- surrender value 規格在哪？
+- 解約後金額不對要看哪裡？
+- 解約金和 Cash Value 有什麼關係？
 
-## Support check
+## 常見技術詞
 
-遇到金額爭議，先記錄 policy id、effective date、calculation version，再確認是否有 pending batch、保單借款扣除或人工調整紀錄。
+解約金、surrender value、cash value、保價金、解約、deduction、calculation。
 
+## 原始資料位置
+
+- Word：`U:/Company/SPEC/Surrender/SURRENDER_VALUE_SPEC.docx`
+- Java Folder：`D:/workspace/surrender/`
+- SQL Folder：`U:/SQL/Surrender/`
+
+## 下一步
+
+請用 Copilot Chat 讀取解約規格，再用 Copilot CLI 查計算服務與資料來源。
+
+## 關鍵結論
+
+- 解約金與保價金相關但不是同一個欄位概念。
+- 查詢前應確認保單狀態與計算基準日。

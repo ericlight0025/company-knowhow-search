@@ -1,14 +1,30 @@
-# Payment Reconciliation
+# 銀行入帳與應收
 
-## Matching
+## 用途
 
-Payment reconciliation 將銀行入帳檔、payment transaction 與保單應收資料配對。核心欄位包含 payment id、settlement date、amount、currency、policy id 與 matching status。
+定位銀行入帳、應收帳款與對帳差異的處理文件。
 
-## Mismatch
+## 常見問法
 
-若 settlement amount mismatch，先檢查重複檔案、匯率、小數進位、partial payment 與 reversal。不要只用客戶姓名或保單號碼人工配對，需保留原始銀行 reference。
+- 銀行入帳時應收相關內容在哪？
+- 收款與應收對不起來怎麼查？
+- payment reconciliation SOP 在哪？
 
-## Batch recovery
+## 常見技術詞
 
-對帳 batch 失敗後要以 file id 與 business date 進行 controlled rerun，並確認已成功的 payment 不會再次入帳。所有差異要進 exception queue 供財務複核。
+銀行入帳、應收、payment reconciliation、settlement、對帳、收款、差異。
 
+## 原始資料位置
+
+- Word：`U:/Company/SPEC/Payment/PAYMENT_RECONCILIATION_SPEC.docx`
+- SQL Folder：`U:/SQL/Payment/`
+- Java Folder：`D:/workspace/payment/`
+
+## 下一步
+
+請先由 Copilot Chat 讀對帳 SOP，再用 Copilot CLI 追收款批次與資料表。
+
+## 關鍵結論
+
+- 先區分銀行回檔、入帳與應收更新的時間點。
+- 對帳差異需保留交易日、批號與銀行 reference。
