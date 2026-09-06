@@ -39,7 +39,7 @@ python search.py "契變保額異動後沒有進電訪要查哪裡" --top 3
 python menu.py
 ```
 
-`index.py` 每次都完整重建本機 SQLite 與 vector index。`data/` 只是可重建的索引產物，已被 Git 忽略；Markdown 卡片才是版本控管的內容。
+`index.py` 每次都完整重建本機 SQLite 與 vector index。Markdown 卡片才是版本控管的主要內容；repository 另附一份僅由合成範例卡片產生的 `data/` 索引，方便 clone 後立即試查。公司實際資料重建的索引仍應維持 Git 忽略。
 
 ## 卡片格式與範例
 
