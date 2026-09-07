@@ -97,6 +97,7 @@ class HashingEmbeddingProvider(EmbeddingProvider):
     def _matched_concepts(self, normalized: str) -> list[tuple[str, float]]:
         """中文可 substring；英文 alias 必須完整 token/boundary 命中。"""
 
+        normalized = normalize_text(normalized)
         matches: list[tuple[str, float]] = []
         for concept, aliases in SEMANTIC_GROUPS.items():
             matched = False
