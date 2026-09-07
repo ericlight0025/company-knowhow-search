@@ -22,7 +22,6 @@ import numpy as np
 
 from config import SEMANTIC_GROUPS
 
-from .models import Chunk
 from .text_utils import normalize_text, tokenize_text
 
 
@@ -49,11 +48,6 @@ class HashingEmbeddingProvider(EmbeddingProvider):
         if dimension < 64:
             raise ValueError("dimension 至少需要 64")
         self.dimension = dimension
-        self._concept_aliases = {
-            alias.casefold(): concept
-            for concept, aliases in SEMANTIC_GROUPS.items()
-            for alias in aliases
-        }
 
     def embed_documents(self, texts: Iterable[str]) -> np.ndarray:
         rows = [self._embed_one(text) for text in texts]
@@ -69,8 +63,8 @@ class HashingEmbeddingProvider(EmbeddingProvider):
             "name": "hashing-local",
             "dimension": self.dimension,
             "semantic_groups": len(SEMANTIC_GROUPS),
-            # 特徵或 tokenizer 邏輯變動時需遞增版本；同義詞另以雜湊驗證。
-            "algorithm_version": 1,
+            # 英文 alias matching 改為 boundary-aware，舊 vector 必須重建。
+            "algorithm_version": 2,
             "synonyms_sha256": hashlib.sha256(json.dumps(
                 SEMANTIC_GROUPS, ensure_ascii=False, sort_keys=True
             ).encode("utf-8")).hexdigest(),
@@ -84,15 +78,12 @@ class HashingEmbeddingProvider(EmbeddingProvider):
         for token in tokens:
             self._add_feature(vector, f"token:{token}", 1.0)
 
-        # 相鄰詞元提供少量 local context；中文字元 bigram 已由 tokenizer 提供。
         for left, right in zip(tokens, tokens[1:]):
             self._add_feature(vector, f"pair:{left}:{right}", 0.35)
 
-        # domain concept feature 讓「契變」與「contract adjustment」落到同一區域。
         for concept, weight in self._matched_concepts(normalized):
             self._add_feature(vector, f"concept:{concept}", weight)
 
-        # 英文長字補少量 character n-gram，讓不同字形的欄位名稱仍有相似度。
         for word in re.findall(r"[a-z0-9_/-]{3,}", normalized):
             compact = word.replace("_", "").replace("-", "")
             for index in range(max(0, len(compact) - 2)):
@@ -104,12 +95,19 @@ class HashingEmbeddingProvider(EmbeddingProvider):
         return vector / norm
 
     def _matched_concepts(self, normalized: str) -> list[tuple[str, float]]:
+        """中文可 substring；英文 alias 必須完整 token/boundary 命中。"""
+
         matches: list[tuple[str, float]] = []
         for concept, aliases in SEMANTIC_GROUPS.items():
             matched = False
             for alias in aliases:
                 alias_normalized = alias.casefold()
-                if alias_normalized in normalized:
+                if alias_normalized.isascii():
+                    pattern = rf"(?<![a-z0-9]){re.escape(alias_normalized)}(?![a-z0-9])"
+                    alias_matches = re.search(pattern, normalized) is not None
+                else:
+                    alias_matches = alias_normalized in normalized
+                if alias_matches:
                     matched = True
                     break
             if matched:
@@ -131,7 +129,7 @@ class SentenceTransformersEmbeddingProvider(EmbeddingProvider):
     def __init__(self, model_name: str):
         try:
             from sentence_transformers import SentenceTransformer
-        except ImportError as exc:  # pragma: no cover - 依賴不存在時才會走這裡
+        except ImportError as exc:  # pragma: no cover
             raise RuntimeError(
                 "未安裝 sentence-transformers；目前 POC 請使用 hashing-local provider。"
             ) from exc
