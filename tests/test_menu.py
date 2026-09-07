@@ -17,8 +17,9 @@ class MenuInputTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_top("0")
 
-    def test_mode_defaults_to_hybrid_and_rejects_unknown_mode(self):
-        self.assertEqual(normalise_mode(""), "hybrid")
+    def test_mode_defaults_to_auto_and_rejects_unknown_mode(self):
+        self.assertEqual(normalise_mode(""), "auto")
+        self.assertEqual(normalise_mode(" AUTO "), "auto")
         self.assertEqual(normalise_mode(" KEYWORD "), "keyword")
         with self.assertRaises(ValueError):
             normalise_mode("unknown")

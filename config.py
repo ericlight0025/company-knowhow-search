@@ -181,14 +181,29 @@ class SearchConfig:
     default_top_k: int = int(os.getenv("KNOWHOW_DEFAULT_TOP_K", "5"))
     max_chunks_per_file: int = int(os.getenv("KNOWHOW_MAX_CHUNKS_PER_FILE", "1"))
     vector_min_similarity: float = float(os.getenv("KNOWHOW_VECTOR_MIN_SIMILARITY", "0.0"))
+    keyword_min_coverage: float = float(os.getenv("KNOWHOW_KEYWORD_MIN_COVERAGE", "0.34"))
+    no_match_vector_similarity: float = float(
+        os.getenv("KNOWHOW_NO_MATCH_VECTOR_SIMILARITY", "0.15")
+    )
 
     def validate(self) -> None:
         """驗證設定，避免索引建立到一半才發現權重錯誤。"""
 
-        if not all(math.isfinite(v) for v in (self.vector_weight, self.keyword_weight, self.vector_min_similarity)):
+        confidence_values = (
+            self.vector_weight,
+            self.keyword_weight,
+            self.vector_min_similarity,
+            self.keyword_min_coverage,
+            self.no_match_vector_similarity,
+        )
+        if not all(math.isfinite(value) for value in confidence_values):
             raise ValueError("權重與相似度門檻必須是有限數值")
         if not -1 <= self.vector_min_similarity <= 1:
             raise ValueError("vector_min_similarity 必須介於 -1 與 1")
+        if not 0 <= self.keyword_min_coverage <= 1:
+            raise ValueError("keyword_min_coverage 必須介於 0 與 1")
+        if not -1 <= self.no_match_vector_similarity <= 1:
+            raise ValueError("no_match_vector_similarity 必須介於 -1 與 1")
         if self.default_top_k <= 0:
             raise ValueError("default_top_k 必須大於 0")
         if self.vector_weight < 0 or self.keyword_weight < 0:

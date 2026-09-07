@@ -77,7 +77,6 @@ def collect_markdown_files(
     if source_specs is not None:
         configured_sources = list(source_specs)
     else:
-        # 保留原本的 Python 呼叫方式；未傳任何來源時仍掃描 knowhow/。
         source_paths = sources if sources is not None else ([] if files else [KNOWHOW_DIR])
         patterns = tuple(include_patterns or ["*.md"])
         configured_sources = [
@@ -109,11 +108,7 @@ def collect_markdown_files(
         if not path.is_dir():
             raise ValueError(f"來源不是資料匣或檔案：{source_spec.path}")
         for pattern in source_spec.include:
-            iterator = (
-                path.rglob(pattern)
-                if source_spec.recursive
-                else path.glob(pattern)
-            )
+            iterator = path.rglob(pattern) if source_spec.recursive else path.glob(pattern)
             for candidate in iterator:
                 if candidate.is_file() and candidate.suffix.casefold() == ".md":
                     relative_text = candidate.relative_to(path).as_posix()
@@ -144,7 +139,6 @@ def build_index(argv: list[str] | None = None) -> int:
     settings = SearchConfig()
     settings.validate()
 
-    # 未指定 CLI 來源時使用 YAML；只要指定任一來源參數，就以 CLI 暫時覆蓋 YAML。
     cli_source_override = (
         args.source is not None
         or args.file is not None
@@ -177,12 +171,17 @@ def build_index(argv: list[str] | None = None) -> int:
     if not paths:
         raise RuntimeError("沒有找到可索引的 .md 文件")
 
-    # loader 只負責讀取 Markdown；來源選擇與顯示路徑由 index CLI 管理。
     loader_root = paths[0].parent
     loader = MarkdownLoader(loader_root)
     documents = [loader.load(path, display_filepath=display_filepath(path)) for path in paths]
 
-    chunker = MarkdownChunker(settings.chunk_target_chars, settings.chunk_max_chars)
+    # Knowledge Map 卡通常短小；短卡以整張文件作為搜尋單位，避免 heading 過度切碎。
+    # 超過 max_chars 的長文件仍沿用原本的 heading / 字元預算切割。
+    chunker = MarkdownChunker(
+        settings.chunk_target_chars,
+        settings.chunk_max_chars,
+        prefer_whole_document=True,
+    )
     chunks = chunker.chunk_documents(documents)
     if not chunks:
         raise RuntimeError("Markdown 有文件但沒有可索引的內容")
@@ -212,7 +211,6 @@ def build_index(argv: list[str] | None = None) -> int:
         "chunks": [chunk.to_dict() for chunk in chunks],
     }
     metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
-    # 新版必須可載入且筆數一致，才能取代 current 指標。
     VectorIndex.load(vector_path, chunks, provider, provider.metadata())
     if fts_index.count() != len(chunks):
         raise RuntimeError("FTS 筆數驗證失敗")

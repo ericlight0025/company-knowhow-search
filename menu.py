@@ -11,7 +11,7 @@ from src.index_config import load_index_config
 from src.hybrid_search import HybridSearcher
 
 
-SEARCH_MODES = ("hybrid", "keyword", "vector")
+SEARCH_MODES = ("auto", "hybrid", "keyword", "vector")
 
 
 def parse_top(value: str, default: int = 5) -> int:
@@ -29,12 +29,12 @@ def parse_top(value: str, default: int = 5) -> int:
     return top
 
 
-def normalise_mode(value: str, default: str = "hybrid") -> str:
-    """解析搜尋模式；空白時使用 Hybrid。"""
+def normalise_mode(value: str, default: str = "auto") -> str:
+    """解析搜尋模式；空白時使用 Auto。"""
 
     mode = value.strip().lower() or default
     if mode not in SEARCH_MODES:
-        raise ValueError("模式只能是 hybrid、keyword 或 vector")
+        raise ValueError("模式只能是 auto、hybrid、keyword 或 vector")
     return mode
 
 
@@ -57,7 +57,7 @@ def _search_flow() -> None:
 
     try:
         top = parse_top(input("Top K（預設 5）："))
-        mode = normalise_mode(input("模式 hybrid/keyword/vector（預設 hybrid）："))
+        mode = normalise_mode(input("模式 auto/hybrid/keyword/vector（預設 auto）："))
     except ValueError as exc:
         print(f"輸入錯誤：{exc}")
         return
@@ -116,17 +116,17 @@ def _show_source_config() -> None:
 
 
 def _show_index_status() -> None:
-    """顯示三個本機索引檔案與 metadata 狀態。"""
+    """顯示三個本機索引檔案、metadata 與來源新鮮度狀態。"""
 
     print("\n本機索引狀態：")
     try:
         searcher = HybridSearcher.load()
         payload = searcher.index_metadata
-        print(f"已驗證檔案雜湊、向量設定與筆數：{searcher.generation.name}")
+        print(f"已驗證檔案雜湊、向量設定、筆數與來源 SHA256：{searcher.generation.name}")
         print(f"Documents: {payload['document_count']}")
         print(f"Chunks: {payload['chunk_count']}")
         print(f"Indexed at: {payload['created_at']}")
-        print("此檢查驗證索引本身；原始文件修改後須重建以更新行號。")
+        print("卡片修改或刪除後會要求重新建立索引，不會繼續使用舊結果。")
     except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
         print(f"索引尚未就緒：{exc}")
     _pause()
@@ -180,7 +180,6 @@ def run_menu() -> int:
             print("\n已取消目前操作，返回主選單。")
         except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
             print(f"操作未完成：{exc}")
-
 
 
 def main() -> int:
