@@ -11,10 +11,17 @@ FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 class MarkdownChunker:
     """以字元預算切割，來源行號指向索引當時的原文。"""
 
-    def __init__(self, target_chars: int = 1400, max_chars: int = 2600):
+    def __init__(
+        self,
+        target_chars: int = 1400,
+        max_chars: int = 2600,
+        prefer_whole_document: bool = False,
+    ):
         if target_chars <= 0 or max_chars < target_chars:
             raise ValueError("target_chars 與 max_chars 設定不合理")
-        self.target_chars, self.max_chars = target_chars, max_chars
+        self.target_chars = target_chars
+        self.max_chars = max_chars
+        self.prefer_whole_document = prefer_whole_document
 
     def _split_if_needed(self, text: str) -> list[str]:
         """優先在換行或句尾切開；拼接後必須等於輸入原文。"""
@@ -32,6 +39,29 @@ class MarkdownChunker:
         return parts
 
     def chunk_document(self, document: Document) -> list[Chunk]:
+        """短 Knowledge Map 可整張索引；較長文件仍依 heading/字元預算切割。"""
+
+        if (
+            self.prefer_whole_document
+            and document.content.strip()
+            and len(document.content) <= self.max_chars
+        ):
+            line_count = max(1, len(document.content.splitlines()))
+            return [
+                Chunk(
+                    f"{document.filepath}::chunk-0",
+                    document.filename,
+                    document.filepath,
+                    document.title,
+                    document.title,
+                    0,
+                    document.content,
+                    1,
+                    line_count,
+                    document.source_sha256,
+                )
+            ]
+
         chunks = []
         heading = document.title
         fence_char, fence_length = "", 0
