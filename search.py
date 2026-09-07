@@ -18,9 +18,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--top", type=int, default=5, help="輸出結果數，預設 5")
     parser.add_argument(
         "--mode",
-        choices=("hybrid", "keyword", "vector"),
-        default="hybrid",
-        help="搜尋模式，預設 hybrid",
+        choices=("auto", "hybrid", "keyword", "vector"),
+        default="auto",
+        help="搜尋模式，預設 auto（Keyword 優先，Hybrid 備援，低可信回 no match）",
     )
     parser.add_argument("--json", action="store_true", help="輸出 JSON，方便 Copilot CLI 讀取")
     return parser
@@ -51,7 +51,7 @@ def print_text_results(query: str, mode: str, results: list[SearchResult]) -> No
     print("\nTop Results:\n")
     print("分數僅表示候選排序，不是答案正確率；行號對應索引當時的原文。")
     if not results:
-        print("No results.")
+        print("No results. Evidence is insufficient; check the wording or rebuild the index if sources changed.")
         return
     for index, result in enumerate(results, start=1):
         print(f"{index}.")
@@ -61,7 +61,7 @@ def print_text_results(query: str, mode: str, results: list[SearchResult]) -> No
         print(f"Score: {result.score:.4f}")
         print("Snippet:")
         print(compact_text(result.chunk.content))
-        if mode == "hybrid":
+        if result.source == "hybrid":
             print(
                 f"Ranks: keyword={result.keyword_rank or '-'}, "
                 f"vector={result.vector_rank or '-'}"
@@ -83,11 +83,14 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if args.json:
-        print(json.dumps({"query": args.query, "mode": args.mode,
-                          "status": "candidates" if results else "no_candidates",
-                          "score_note": "排序分數不是正確率，請確認原文；門檻尚未以公司題庫校準。",
-                          "indexed_at": searcher.index_metadata["created_at"],
-                          "results": [result_to_dict(item) for item in results]}, ensure_ascii=False, indent=2))
+        print(json.dumps({
+            "query": args.query,
+            "mode": args.mode,
+            "status": "candidates" if results else "no_candidates",
+            "score_note": "排序分數不是正確率；auto 模式會在證據不足時回傳 no_candidates。",
+            "indexed_at": searcher.index_metadata["created_at"],
+            "results": [result_to_dict(item) for item in results],
+        }, ensure_ascii=False, indent=2))
     else:
         print_text_results(args.query, args.mode, results)
     return 0
