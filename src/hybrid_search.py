@@ -175,7 +175,10 @@ class HybridSearcher:
             if self._keyword_coverage(query, result) >= self.config.keyword_min_coverage
         ]
         if accepted_keyword:
-            return accepted_keyword[:top_k]
+            return [
+                replace(result, rank=rank)
+                for rank, result in enumerate(accepted_keyword[:top_k], start=1)
+            ]
 
         fallback = self.hybrid_search(query, candidate_limit)
         accepted_fallback = [
@@ -184,7 +187,10 @@ class HybridSearcher:
             if result.cosine_score is not None
             and result.cosine_score >= self.config.no_match_vector_similarity
         ]
-        return accepted_fallback[:top_k]
+        return [
+            replace(result, rank=rank)
+            for rank, result in enumerate(accepted_fallback[:top_k], start=1)
+        ]
 
     def search(self, query: str, top_k: int, mode: str = "auto") -> list[SearchResult]:
         if mode == "auto":

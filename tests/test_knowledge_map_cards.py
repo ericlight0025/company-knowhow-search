@@ -3,7 +3,9 @@
 from pathlib import Path
 import unittest
 
+from config import SearchConfig
 from src.evaluation import EVALUATION_CASES
+from src.hybrid_search import HybridSearcher
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -22,6 +24,15 @@ class KnowledgeMapCardsTest(unittest.TestCase):
                 self.assertTrue(all(section in content for section in REQUIRED_SECTIONS))
                 self.assertGreaterEqual(len(content.splitlines()), 10)
                 self.assertLessEqual(len(content.splitlines()), 40)
+
+    def test_bundled_index_loads_and_locates_a_sample_card(self):
+        searcher = HybridSearcher.load(
+            config=SearchConfig(embedding_dimension=512),
+            data_dir=PROJECT_ROOT / "data",
+        )
+        results = searcher.search("批次值日生每天要做什麼", 3, "auto")
+        self.assertTrue(results)
+        self.assertEqual(results[0].chunk.filepath, "knowhow/batch_monitoring.md")
 
     def test_locator_evaluation_has_twelve_expected_cards(self):
         self.assertEqual(len(EVALUATION_CASES), 12)

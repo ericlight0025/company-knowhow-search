@@ -98,7 +98,10 @@ class SnapshotTests(unittest.TestCase):
                 with patch.object(index.VectorIndex, "save", side_effect=OSError("磁碟失敗")):
                     self.assertEqual(index.main(["--file", str(source)]), 1)
                 self.assertEqual(resolve_generation(data), old)
-                self.assertTrue(HybridSearcher.load(data_dir=data).search("保價金", 1))
+                # 指標仍保留舊版本，但來源已修改，新的載入必須拒絕過期索引。
+                with self.assertRaisesRegex(ValueError, "索引已過期"):
+                    HybridSearcher.load(data_dir=data)
+                self.assertTrue(loaded.search("保價金", 1))
                 with patch("src.index_store.os.replace", side_effect=PermissionError("切換失敗")):
                     self.assertEqual(index.main(["--file", str(source)]), 1)
                 self.assertEqual(resolve_generation(data), old)

@@ -3,6 +3,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from config import SearchConfig
 from src.chunker import MarkdownChunker
@@ -10,7 +11,7 @@ from src.embedding_provider import HashingEmbeddingProvider
 from src.fts_index import FTSIndex
 from src.hybrid_search import HybridSearcher
 from src.index_store import file_hash
-from src.models import Chunk, Document
+from src.models import Chunk, Document, SearchResult
 from src.vector_index import VectorIndex
 
 
@@ -79,9 +80,9 @@ class StaleIndexTests(unittest.TestCase):
                     {"file": str(source), "sha256": file_hash(source)},
                 ]
             }
-            source.unlink()
-            with self.assertRaisesRegex(ValueError, "已不存在"):
-                HybridSearcher._validate_source_freshness(payload)
+            with patch.object(Path, "is_file", return_value=False):
+                with self.assertRaisesRegex(ValueError, "已不存在"):
+                    HybridSearcher._validate_source_freshness(payload)
 
 
 class SemanticAliasTests(unittest.TestCase):
@@ -153,6 +154,39 @@ class AutoSearchTests(unittest.TestCase):
         searcher = self.build_searcher()
         results = searcher.search("火星探測器如何校正軌道", 3, "auto")
         self.assertEqual(results, [])
+
+    def test_auto_reranks_filtered_keyword_results_without_mutating_candidates(self):
+        searcher = self.build_searcher()
+        chunk = searcher.vector_index.chunks[0]
+        candidates = [
+            SearchResult(chunk, 1.0, "keyword", rank=1, keyword_rank=1),
+            SearchResult(chunk, 0.5, "keyword", rank=2, keyword_rank=2),
+            SearchResult(chunk, 0.25, "keyword", rank=4, keyword_rank=4),
+        ]
+        with patch.object(searcher, "keyword_search", return_value=candidates), patch.object(
+            searcher, "_keyword_coverage", side_effect=[0.0, 1.0, 1.0]
+        ), patch.object(searcher, "hybrid_search") as fallback:
+            results = searcher.auto_search("契變", 2)
+        fallback.assert_not_called()
+        self.assertEqual([item.rank for item in results], [1, 2])
+        self.assertEqual([item.keyword_rank for item in results], [2, 4])
+        self.assertEqual([item.rank for item in candidates], [1, 2, 4])
+
+    def test_auto_reranks_filtered_fallback_without_mutating_candidates(self):
+        searcher = self.build_searcher()
+        chunk = searcher.vector_index.chunks[0]
+        candidates = [
+            SearchResult(chunk, 1.0, "hybrid", rank=1, cosine_score=0.1),
+            SearchResult(chunk, 0.5, "hybrid", rank=2, cosine_score=0.95, vector_rank=3),
+            SearchResult(chunk, 0.4, "hybrid", rank=3, cosine_score=0.96, vector_rank=4),
+        ]
+        with patch.object(searcher, "keyword_search", return_value=[]), patch.object(
+            searcher, "hybrid_search", return_value=candidates
+        ):
+            results = searcher.auto_search("契變", 2)
+        self.assertEqual([item.rank for item in results], [1, 2])
+        self.assertEqual([item.vector_rank for item in results], [3, 4])
+        self.assertEqual([item.rank for item in candidates], [1, 2, 3])
 
     def test_legacy_search_modes_remain_available(self):
         searcher = self.build_searcher()

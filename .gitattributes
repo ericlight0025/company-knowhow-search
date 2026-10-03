@@ -1,0 +1,5 @@
+# Source hashes in the bundled index must survive Windows checkouts.
+*.md text eol=lf
+
+# Published index checksums cover exact bytes, including JSON line endings.
+data/** -text
