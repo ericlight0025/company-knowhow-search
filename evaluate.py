@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 from config import ROOT_DIR, SearchConfig
 from src.evaluation import generate_report
 from src.hybrid_search import HybridSearcher
@@ -9,6 +11,15 @@ from src.hybrid_search import HybridSearcher
 
 def main() -> int:
     searcher = HybridSearcher.load(SearchConfig())
+    # 報告會寫進有版本控管的 docs/，只允許內建合成卡片，避免公司內容被 commit。
+    sources = [str(item.get("file", "")) for item in searcher.index_metadata.get("sources", [])]
+    if any(not name.startswith("knowhow/") for name in sources):
+        print(
+            "evaluate.py 只評估內建的 knowhow/ 合成卡片；目前索引含外部來源，"
+            "為避免把公司內容寫進 docs/，已停止。",
+            file=sys.stderr,
+        )
+        return 1
     report = generate_report(searcher, ROOT_DIR / "docs" / "search-evaluation.md", top_k=5)
     wins = report["wins"]
     unique_wins = report["unique_wins"]
