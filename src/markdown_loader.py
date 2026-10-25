@@ -23,7 +23,10 @@ class MarkdownLoader:
 
     def load(self, path: Path, display_filepath: str | None = None) -> Document:
         raw = path.read_bytes()
-        content = raw.decode("utf-8-sig")
+        try:
+            content = raw.decode("utf-8-sig")
+        except UnicodeDecodeError as exc:
+            raise ValueError(f"{path} 不是 UTF-8 編碼，請另存為 UTF-8 後重新建立索引") from exc
         title = self._extract_title(content, path)
         relative_path = display_filepath or path.relative_to(self.root_dir.parent).as_posix()
         return Document(

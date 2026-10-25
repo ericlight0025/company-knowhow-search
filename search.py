@@ -97,4 +97,8 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+    # Windows 導向管線或檔案時預設用 cp950；固定 UTF-8，Copilot CLI 才讀得到正確中文。
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
     raise SystemExit(main())

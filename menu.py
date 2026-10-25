@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 import sqlite3
 
 from config import ROOT_DIR
@@ -68,10 +69,18 @@ def _search_flow() -> None:
     _pause()
 
 
+def index_config_path() -> Path:
+    """有 index_config.local.yaml 時優先使用，與 README 建議的公司設定一致。"""
+
+    local_path = ROOT_DIR / "index_config.local.yaml"
+    return local_path if local_path.is_file() else ROOT_DIR / "index_config.yaml"
+
+
 def _rebuild_flow() -> None:
     """確認後完整重建索引。"""
 
-    print("\n索引重建會依 index_config.yaml 完整重建 data/ 下的檔案。")
+    config_path = index_config_path()
+    print(f"\n索引重建會依 {config_path.name} 完整重建 data/ 下的檔案。")
     print("原始 Markdown 不會被修改。")
     confirmation = input("確定要重建嗎？輸入 Y 繼續：").strip().lower()
     if confirmation not in {"y", "yes"}:
@@ -79,7 +88,7 @@ def _rebuild_flow() -> None:
         return
 
     try:
-        if index_main([]) != 0:
+        if index_main(["--config", str(config_path)]) != 0:
             print("重建未成功；請依上述錯誤修正後重試。")
     except (FileNotFoundError, RuntimeError, ValueError) as exc:
         print(f"索引重建失敗：{exc}")
@@ -89,7 +98,7 @@ def _rebuild_flow() -> None:
 def _show_source_config() -> None:
     """顯示目前 YAML 解析後的來源設定。"""
 
-    config_path = ROOT_DIR / "index_config.yaml"
+    config_path = index_config_path()
     try:
         index_config = load_index_config(config_path)
     except (FileNotFoundError, RuntimeError, ValueError) as exc:
